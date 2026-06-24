@@ -39,7 +39,6 @@
 //! are noted here rather than implemented:
 //!
 //! - `async` support (P4).
-//! - `serde` integration (P4).
 //! - Multi-VM `Send`/`Sync` (`WeakLua`, send-able handles) (P4).
 //! - Thread event callbacks (`ThreadEvent`/`ThreadTriggers`/
 //!   `set_thread_event_callback`) and per-thread hooks.
@@ -52,6 +51,12 @@
 //! Implemented in Phase 2: the Luau-specific runtime types [`Buffer`] (the
 //! `buffer` type) and [`Vector`] (the `vector` type), with their
 //! [`Value::Buffer`]/[`Value::Vector`] variants and `FromLua`/`IntoLua` impls.
+//!
+//! Implemented in Phase 4a (behind the `serde` cargo feature): serde
+//! (de)serialization between Rust types and Lua [`Value`]s — the `LuaSerdeExt`
+//! trait on [`Lua`], a serde `Serializer`/`Deserializer` over [`Value`]/
+//! [`Table`], `SerializeOptions`/`DeserializeOptions`, and `Serialize` impls
+//! for [`Value`]/[`Table`] with the `Value::to_serializable` wrapper.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 
@@ -66,6 +71,8 @@ mod metamethod;
 mod multi;
 mod registry;
 mod scope;
+#[cfg(feature = "serde")]
+mod serde;
 mod state;
 mod string;
 mod table;
@@ -93,6 +100,12 @@ pub use userdata::{
 };
 pub use value::{Integer, Number, Value};
 pub use vector::Vector;
+
+#[cfg(feature = "serde")]
+pub use serde::{
+    DeserializeOptions, Deserializer as LuaDeserializer, LuaSerdeExt, SerializableTable,
+    SerializableValue, SerializeOptions, Serializer as LuaSerializer,
+};
 
 /// Idiomatic glob-import prelude. Mirrors `mlua::prelude`, additionally
 /// re-exporting the short names so `use luaur_rt::prelude::*;` brings the whole

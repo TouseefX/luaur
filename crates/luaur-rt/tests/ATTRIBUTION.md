@@ -35,10 +35,27 @@ change also let `tests/mlua_userdata.rs::test_userdata_take` adopt mlua's exact
 `CallbackError { cause: UserDataDestructed }` assertion (previously approximated
 as `RuntimeError`).
 
-Still deferred (later phases): async, serde, `Send`/`Sync`, the `Compiler`
+Phase 4a added the `serde` feature (behind the `serde` cargo feature): the
+`LuaSerdeExt` trait on `Lua` (`null`/`array_metatable`/`to_value`/`to_value_with`/
+`from_value`/`from_value_with`), a serde `Serializer` that builds Lua `Value`s, a
+`Deserializer` that reads them, `SerializeOptions`/`DeserializeOptions`, and
+`Serialize for Value`/`Table` with the `Value::to_serializable()`
+(`SerializableValue`) wrapper. Coverage: `tests/mlua_serde.rs` (ported from
+mlua's `tests/serde.rs`, gated `#![cfg(feature = "serde")]`). Documented
+deviations are noted at the top of that file: Luau numbers are `f64`; `lua.null()`
+is a dedicated per-`Lua` sentinel **table** (luaur-rt's `Value` has no
+`LightUserData` variant); and serializable-userdata (`create_ser_userdata` /
+`create_ser_any_userdata` / `wrap_ser`) is a separate not-yet-implemented
+feature, so the userdata-only tests and the userdata portions of `test_serialize`
+/ `test_serialize_failure` are dropped (with notes), as are the `serde_value`
+buffer tests.
+
+Still deferred (later phases): async, `Send`/`Sync`, the `Compiler`
 (chunk compile options / `set_vector_ctor`), sandbox/interrupts/fflags/heap-dump,
 the proc-macro `chunk!`, and `#[derive(UserData)]`. From `Scope`: the
-userdata-ref borrowing variants and `create_any_userdata*` (see above).
+userdata-ref borrowing variants and `create_any_userdata*` (see above). From
+`serde`: serializable userdata (`create_ser_userdata*` / `wrap_ser` /
+`Serialize for AnyUserData`).
 
 ## Adapted files
 
@@ -57,6 +74,7 @@ userdata-ref borrowing variants and `create_any_userdata*` (see above).
 | `tests/mlua_luau.rs`       | `tests/luau.rs` (Luau-relevant subset) |
 | `tests/mlua_buffer.rs`     | `tests/buffer.rs` |
 | `tests/mlua_scope.rs`      | `tests/scope.rs` (portable subset) |
+| `tests/mlua_serde.rs`      | `tests/serde.rs` (non-userdata subset, gated `feature = "serde"`) |
 
 ## mlua MIT License
 

@@ -9,6 +9,11 @@ description = "Safe, ergonomic, mlua-style API for luaur (pure-Rust Luau)."
 keywords = ["luau", "lua", "mlua", "scripting", "embedding"]
 categories = ["api-bindings", "development-tools::ffi", "game-development"]
 
+[features]
+# Rust <-> Lua value (de)serialization via serde, mirroring mlua's `serde`
+# feature. Off by default so the base build/API is unchanged.
+serde = ["dep:serde"]
+
 [dependencies]
 luaur-common = { path = "../luaur-common", version = "0.1.0" }
 luaur-compiler = { path = "../luaur-compiler", version = "0.1.0" }
@@ -17,3 +22,19 @@ luaur-vm = { path = "../luaur-vm", version = "0.1.0" }
 # mirroring the umbrella `luaur` crate's `compile` helper.
 luaur-ast = { path = "../luaur-ast", version = "0.1.0" }
 luaur-bytecode = { path = "../luaur-bytecode", version = "0.1.0" }
+
+# Optional: only pulled in by the `serde` feature. We implement the
+# Serializer/Deserializer directly over luaur-rt's `Value`/`Table`, so plain
+# `serde` is all that is needed (no erased-serde / serde-value).
+serde = { version = "1.0", optional = true, default-features = false, features = ["std"] }
+
+[dev-dependencies]
+# The ported mlua serde tests assert round-trips against `serde_json` and use
+# `bstr::BString` / `#[derive(Serialize, Deserialize)]`, exactly like mlua's
+# `tests/serde.rs`. These are test-only.
+serde = { version = "1.0", features = ["std", "derive"] }
+# `arbitrary_precision` makes `serde_json::Number` serialize as the
+# `$serde_json::private::Number` struct, which the `test_arbitrary_precision`
+# port exercises (matching mlua's dev-dependency).
+serde_json = { version = "1.0", features = ["arbitrary_precision"] }
+bstr = { version = "1", features = ["serde"] }

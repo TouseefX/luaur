@@ -118,9 +118,25 @@ impl Table {
         Ok(n.max(0) as usize)
     }
 
-    /// Whether the table's sequence part is empty.
+    /// Whether the table is empty, without invoking metamethods.
+    ///
+    /// Mirrors `mlua::Table::is_empty`: checks **both** the array part and the
+    /// hash part (a table with only string keys is *not* empty). Uses a single
+    /// `lua_next` probe — present iff the table has at least one key.
     pub fn is_empty(&self) -> bool {
-        self.raw_len() == 0
+        let state = self.reference.state();
+        unsafe {
+            self.reference.push(); // table
+            lua_pushnil(state); // first key
+            if lua_next(state, -2) == 0 {
+                // No first key: table is empty. `lua_next` already popped the key.
+                lua_pop(state, 1); // pop table
+                return true;
+            }
+            // stack: table, key, value — pop value+key+table.
+            lua_pop(state, 3);
+            false
+        }
     }
 
     /// Iterate over `(key, value)` pairs.

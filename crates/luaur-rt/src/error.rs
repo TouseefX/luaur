@@ -105,6 +105,28 @@ pub enum Error {
     MismatchedRegistryKey,
     /// An error originating outside Lua, wrapped via [`Error::external`].
     ExternalError(Arc<DynStdError>),
+    /// A serialization (Rust -> Lua) error produced by the `serde` feature.
+    /// Mirrors `mlua::Error::SerializeError`.
+    #[cfg(feature = "serde")]
+    SerializeError(String),
+    /// A deserialization (Lua -> Rust) error produced by the `serde` feature.
+    /// Mirrors `mlua::Error::DeserializeError`.
+    #[cfg(feature = "serde")]
+    DeserializeError(String),
+}
+
+#[cfg(feature = "serde")]
+impl serde::ser::Error for Error {
+    fn custom<T: fmt::Display>(msg: T) -> Self {
+        Error::SerializeError(msg.to_string())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::de::Error for Error {
+    fn custom<T: fmt::Display>(msg: T) -> Self {
+        Error::DeserializeError(msg.to_string())
+    }
 }
 
 impl Error {
@@ -174,6 +196,10 @@ impl fmt::Display for Error {
                 write!(f, "registry key used with the wrong Lua instance")
             }
             Error::ExternalError(err) => write!(f, "{err}"),
+            #[cfg(feature = "serde")]
+            Error::SerializeError(msg) => write!(f, "serialize error: {msg}"),
+            #[cfg(feature = "serde")]
+            Error::DeserializeError(msg) => write!(f, "deserialize error: {msg}"),
         }
     }
 }

@@ -16,12 +16,14 @@ members = [
     "crates/luaur-compiler",
     "crates/luaur-config",
     "crates/luaur-conformance",
+    "crates/luaur-e2e",
     "crates/luaur-reduce-cli",
     "crates/luaur-repl-cli",
     "crates/luaur-require",
     "crates/luaur-unit-test",
     "crates/luaur-vm",
     "crates/luaur-web",
+    "examples/*",
 ]
 
 [workspace.package]

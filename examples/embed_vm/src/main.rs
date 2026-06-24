@@ -2,7 +2,7 @@
 //! returned value. Use this lower-level (C-style) API when you need more control
 //! than `luaur::eval` — custom globals, inspecting results, multiple chunks, etc.
 //!
-//!     cargo run -p luaur --example embed_vm
+//!     cargo run -p luaur-example-embed-vm
 
 use luaur::vm::functions::lua_gettop::lua_gettop;
 use luaur::vm::functions::lua_l_newstate::lua_l_newstate;

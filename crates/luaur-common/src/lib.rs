@@ -15,6 +15,11 @@ pub mod type_aliases;
 #[cfg(test)]
 mod vec_deque_tests;
 
+/// Minimal libc surface for `wasm32-unknown-unknown` (allocator + a few string
+/// helpers). Compiled only for wasm; the native build binds the platform libc.
+#[cfg(target_arch = "wasm32")]
+pub mod wasm_libc;
+
 // C++ exposes this at namespace scope; codegen_assert! and friends reference
 // `luaur_common::assert_call_handler` directly.
 pub use functions::assert_call_handler::assert_call_handler;

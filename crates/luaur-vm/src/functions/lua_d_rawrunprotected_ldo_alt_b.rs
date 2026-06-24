@@ -14,6 +14,10 @@ pub unsafe fn lua_d_rawrunprotected_mut(
 ) -> i32 {
     let mut status: i32 = 0;
 
+    // Silence the default panic-hook noise for the VM's longjmp-emulation
+    // unwinds (a caught `lua_exception` is a normal Lua error, not a crash).
+    crate::functions::install_lua_exception_panic_hook::install_lua_exception_panic_hook();
+
     // In Rust, we use std::panic::catch_unwind to simulate the C++ try/catch boundary.
     // Note: This requires the 'std' library.
     let result = std::panic::catch_unwind(move || {

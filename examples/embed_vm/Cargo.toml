@@ -1,0 +1,11 @@
+# Example crate: drive the VM directly (lower-level than eval).
+#     cargo run -p luaur-example-embed-vm
+[package]
+name = "luaur-example-embed-vm"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# In your own project this would be: luaur = "0.1"
+luaur = { path = "../../crates/luaur" }

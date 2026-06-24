@@ -20,6 +20,11 @@ impl Parser {
     {
         LUAU_TIMETRACE_SCOPE!("Parser::parse", "Parser");
 
+        // Silence the default panic-hook noise for the parser's exception-
+        // emulation unwinds (a caught `ParseError` is a normal syntax/limit
+        // error, not a crash).
+        crate::functions::install_parse_error_panic_hook::install_parse_error_panic_hook();
+
         let mut p = Parser::new(buffer, names, allocator as *mut Allocator, options);
 
         // C++ try-catch is mapped to a result-like handling of ParseError panics if they occur,

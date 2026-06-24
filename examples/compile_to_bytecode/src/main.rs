@@ -1,6 +1,6 @@
 //! Compile Luau source to bytecode (without running it).
 //!
-//!     cargo run -p luaur --example compile_to_bytecode
+//!     cargo run -p luaur-example-compile-to-bytecode
 
 fn main() {
     let source = "local x = 41\nreturn x + 1";

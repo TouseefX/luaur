@@ -1,7 +1,7 @@
 //! Parse Luau source to an AST and inspect parse errors, using the `luaur::ast`
 //! layer directly (no compilation or execution).
 //!
-//!     cargo run -p luaur --example parse_ast
+//!     cargo run -p luaur-example-parse-ast
 
 use luaur::ast::records::allocator::Allocator;
 use luaur::ast::records::ast_name_table::AstNameTable;

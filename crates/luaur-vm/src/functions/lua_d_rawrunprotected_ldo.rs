@@ -18,6 +18,10 @@ pub unsafe fn luaD_rawrunprotected(
 ) -> core::ffi::c_int {
     let mut status: core::ffi::c_int = 0;
 
+    // Silence the default panic-hook noise for the VM's longjmp-emulation
+    // unwinds (a caught `lua_exception` is a normal Lua error, not a crash).
+    crate::functions::install_lua_exception_panic_hook::install_lua_exception_panic_hook();
+
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if let Some(f) = f {
             f(L, ud);

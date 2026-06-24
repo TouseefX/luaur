@@ -10,14 +10,18 @@ impl TypeChecker2 {
         #[cfg(any(not(debug_assertions), feature = "luau_enable_assert"))]
         {
             unsafe {
-                let builtin_types = (*self.builtin_types);
-                let best_type = builtin_types.number_type;
+                let builtin_types = &*self.builtin_types;
+                let best_type = builtin_types.numberType;
                 let inferred_type =
                     self.lookup_type(expr as *mut luaur_ast::records::ast_expr::AstExpr);
                 let scope = self.find_innermost_scope((*expr).base.base.location);
 
-                let subtyping = &*self.subtyping;
-                let r = subtyping.is_subtype(best_type, inferred_type, &mut *scope);
+                let subtyping = &mut *self.subtyping;
+                let r = subtyping.is_subtype_type_id_type_id_not_null_scope(
+                    best_type,
+                    inferred_type,
+                    scope,
+                );
 
                 LUAU_ASSERT!(
                     r.is_subtype

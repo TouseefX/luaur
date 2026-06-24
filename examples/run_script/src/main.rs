@@ -1,6 +1,6 @@
 //! Run a Luau script on a fresh VM — the simplest way to use luaur.
 //!
-//!     cargo run -p luaur --example run_script
+//!     cargo run -p luaur-example-run-script
 
 fn main() {
     // `eval` compiles the source, opens a fresh VM with the standard library,

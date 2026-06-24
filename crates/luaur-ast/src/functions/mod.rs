@@ -6,6 +6,7 @@ pub mod get_identifier;
 pub mod get_location_ast;
 pub mod get_location_ast_alt_b;
 pub mod has_attribute_in_array;
+pub mod install_parse_error_panic_hook;
 pub mod is_alpha;
 pub mod is_constant_literal;
 pub mod is_digit_lexer;

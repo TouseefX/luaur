@@ -11,6 +11,11 @@
 err.log
 *.log
 
+# CLI run artifacts (profiler dumps, bytecode summaries, time traces)
+profile.out
+bytecode-summary.json
+trace.json
+
 # Editor / OS cruft
 .DS_Store
 .idea/

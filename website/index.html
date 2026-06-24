@@ -139,25 +139,23 @@
                 <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
                 <span class="label">source.luau</span>
               </div>
-              <!-- live, debounced type-check diagnostics surface here -->
-              <div id="diag" class="diag-strip is-idle" aria-live="polite">
-                <span class="diag-icon">·</span>
-                <span class="diag-body"><span class="diag-line">Type-checker idle.</span></span>
-              </div>
               <div id="editor" class="editor"></div>
             </div>
             <div class="pg-pane pg-output-pane">
               <div class="pane-head">
-                <span class="label">run output</span>
+                <span class="label">diagnostics &amp; output</span>
                 <span id="status" class="status status-loading">loading wasm…</span>
               </div>
-              <pre id="output" class="output is-booting">Loading the Luau engine (WebAssembly)…</pre>
+              <!-- Type-check diagnostics (live, debounced) and Run output both
+                   render here, aligned by line number. -->
+              <pre id="output" class="output is-booting" aria-live="polite">Loading the Luau engine (WebAssembly)…</pre>
             </div>
           </div>
           <p class="pg-note">
             <strong>Type-check</strong> uses the path that is fully precise on this
             <code>wasm32-unknown-unknown</code> build — it reports the exact line and message,
-            and re-runs automatically a moment after you stop typing. <strong>Run</strong>
+            and re-runs automatically a moment after you stop typing (click a
+            <span class="kbd-inline">Lnn</span> chip to jump to that line). <strong>Run</strong>
             executes on the VM; press <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> to run.
             The <em>type-error</em> example shows the checker catching a real mistake before you Run.
           </p>

@@ -301,24 +301,45 @@ section { padding: 66px 0; }
 .cm-editor .cm-scroller { font-family: var(--mono); }
 .cm-editor.cm-focused { outline: none; }
 
-/* ── inline diagnostics strip (auto type-check) ── */
-.diag-strip {
-  font-family: var(--mono); font-size: 12px; line-height: 1.5;
-  padding: 9px 15px; border-bottom: 1px solid var(--border);
-  background: var(--bg-2); color: var(--text-mut);
-  display: flex; align-items: flex-start; gap: 9px; min-height: 38px;
-  transition: background .15s ease, color .15s ease;
+/* ── diagnostics report (rendered in the output pane) ── */
+.diag-report { display: block; }
+.diag-head {
+  display: flex; align-items: center; gap: 9px;
+  font-family: var(--mono); font-size: 12.5px; font-weight: 700; letter-spacing: 0.01em;
+  padding-bottom: 11px; margin-bottom: 11px;
+  border-bottom: 1px solid var(--border);
 }
-.diag-strip .diag-icon { flex: none; font-size: 13px; line-height: 1.4; }
-.diag-strip .diag-body { min-width: 0; }
-.diag-strip .diag-line { display: block; }
-.diag-strip .diag-line + .diag-line { margin-top: 2px; }
-.diag-strip .diag-loc { color: var(--moon); font-weight: 600; }
-.diag-strip .diag-more { color: var(--text-mut); font-style: italic; }
-.diag-strip.is-ok      { color: var(--ok); background: rgba(111,220,140,0.06); }
-.diag-strip.is-err     { color: var(--bad); background: rgba(255,107,107,0.07); }
-.diag-strip.is-busy    { color: var(--moon); }
-.diag-strip.is-idle    { color: var(--text-mut); }
+.diag-head .diag-mark { font-size: 13px; }
+.diag-head.is-ok  { color: var(--ok); }
+.diag-head.is-err { color: var(--bad); }
+.diag-okline { color: var(--text-dim); font-size: 12.5px; line-height: 1.7; }
+
+/* one diagnostic = a line-number chip + the message, grid-aligned */
+.diag-row {
+  display: grid; grid-template-columns: 44px 1fr; gap: 12px;
+  align-items: start; padding: 5px 0;
+}
+.diag-row + .diag-row { border-top: 1px solid rgba(255,255,255,0.04); }
+.diag-ln {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 700;
+  color: var(--moon); text-align: right; line-height: 1.55;
+  padding: 1px 6px; border-radius: 4px; border: 1px solid transparent;
+  white-space: nowrap; text-decoration: none;
+  background: rgba(95,185,255,0.08);
+}
+a.diag-ln:hover { color: #fff; background: rgba(95,185,255,0.22); border-color: var(--moon-deep); text-decoration: none; }
+.diag-ln-none { color: var(--text-mut); background: transparent; }
+.diag-msg {
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+  color: var(--text-dim); word-break: break-word;
+}
+
+/* small inline pill used in prose to name a UI affordance */
+.kbd-inline {
+  font-family: var(--mono); font-size: 0.86em; font-weight: 600; color: var(--rust-hot);
+  background: rgba(255,106,31,0.10); border: 1px solid rgba(255,106,31,0.22);
+  border-radius: 4px; padding: 0 6px;
+}
 
 .output {
   flex: 1; margin: 0; padding: 15px 17px; overflow: auto;
@@ -447,6 +468,58 @@ table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .crate-table td:first-child { width: 210px; }
 .crate-table code { background: transparent; padding: 0; color: var(--text-dim); }
 .crates-foot { color: var(--text-mut); font-size: 13.5px; line-height: 1.7; }
+
+/* ── hero stat asterisk ── */
+.stat-aster {
+  color: var(--rust); font-weight: 700; font-size: 0.55em; vertical-align: super;
+  margin-left: 1px; text-decoration: none;
+}
+.stat-aster:hover { color: var(--rust-hot); text-decoration: none; }
+
+/* ════════════════════════════ FAQ ════════════════════════════ */
+.faq-list { display: grid; gap: 11px; }
+.faq-item {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+  transition: border-color .15s ease;
+}
+.faq-item:hover { border-color: var(--border-2); }
+.faq-item[open] { border-color: var(--rust-deep); }
+.faq-item summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 12px;
+  padding: 17px 20px;
+  font-family: var(--display); font-size: 15.5px; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--text);
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+/* a sharp +/− toggle in the signature color */
+.faq-item summary::before {
+  content: "+"; flex: none;
+  font-family: var(--mono); font-weight: 700; font-size: 17px; line-height: 1;
+  color: var(--rust); width: 16px; text-align: center;
+}
+.faq-item[open] summary::before { content: "−"; }
+.faq-item summary:hover { color: var(--rust-hot); }
+.faq-item summary .aster-tag { color: var(--rust); font-family: var(--mono); }
+.faq-body {
+  padding: 0 20px 18px 48px; color: var(--text-dim); font-size: 14px; line-height: 1.7;
+}
+.faq-body p { margin: 0 0 12px; }
+.faq-body p:last-child { margin-bottom: 0; }
+.faq-body ul { margin: 0 0 12px; padding-left: 18px; display: grid; gap: 8px; }
+.faq-body li { padding-left: 2px; }
+.faq-body strong { color: var(--text); }
+.faq-body em { color: var(--text); font-style: italic; }
+.faq-body code {
+  background: rgba(255,255,255,0.055); border-radius: 3px; padding: 1px 5px;
+  color: var(--rust-hot); font-size: 0.92em;
+}
+@media (max-width: 560px) { .faq-body { padding-left: 20px; } }
+
+/* details reveal motion (disabled under reduced-motion via the block at EOF) */
+.faq-item[open] .faq-body { animation: faq-reveal .2s ease; }
+@keyframes faq-reveal { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 
 /* ── footer ── */
 .foot { padding: 50px 0 66px; border-top: 1px solid var(--border); color: var(--text-mut); }

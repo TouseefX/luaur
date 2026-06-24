@@ -22,7 +22,7 @@ see [`CONFORMANCE.md`](CONFORMANCE.md).)
 Largest C++ subsystems translated: Analysis (type checker) 95k, CodeGen 45k, VM 27k,
 Ast 16k, Compiler 11k, plus Common/Config/Require/CLI.
 
-**Validation:** 5,347 ported unit tests pass (0 fail / 1 skipped), all **293/293**
+**Validation:** 5,347 ported unit tests pass (0 fail), all **293/293**
 upstream conformance scripts run byte-identically on the Rust VM, and a byte-exact
 bytecode differential confirms the compiler→VM pipeline against the reference.
 

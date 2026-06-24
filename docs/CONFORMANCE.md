@@ -14,7 +14,7 @@ worth more than a blanket "perfect port."
 
 | Oracle | Result |
 |---|---|
-| Ported unit suite (Luau's own doctest tests, translated to `#[test]`) | **5,347 pass / 0 fail / 1 skipped** |
+| Ported unit suite (Luau's own doctest tests, translated to `#[test]`) | **5,347 pass / 0 fail** |
 | Upstream conformance scripts (`tests/conformance/*.luau`) on the Rust VM | **293 / 293** |
 | Byte-exact bytecode differential (C++-compiled bytecode run on the Rust VM) | identical results |
 
@@ -48,8 +48,6 @@ pipeline end-to-end against the reference implementation.
 
 ## Known gaps
 
-- **1 ignored test:** `infer_generic_function_function_argument_overloaded_pt_1` — a
-  new-solver leaked-generic generalization-scheduling case. Documented, not papered over.
 - **Documented C++-isms:** a small number of C++ special-member functions (copy/move
   constructors, copy-assignment), template-generic helpers superseded by monomorphized
   Rust callers, and one `_DEPRECATED` function have no Rust call site. Rather than leave

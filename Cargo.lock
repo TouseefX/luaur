@@ -424,6 +424,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "luaur-example-type-check"
+version = "0.0.0"
+dependencies = [
+ "luaur",
+]
+
+[[package]]
 name = "luaur-reduce-cli"
 version = "0.1.0"
 dependencies = [

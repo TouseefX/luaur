@@ -87,6 +87,7 @@ pub(crate) use luaur_vm::functions::lua_xmove::lua_xmove;
 // ---- function environment + debug info -----------------------------------
 pub(crate) use luaur_vm::functions::lua_getfenv::lua_getfenv;
 pub(crate) use luaur_vm::functions::lua_getinfo::lua_getinfo;
+pub(crate) use luaur_vm::functions::lua_getupvalue::lua_getupvalue;
 pub(crate) use luaur_vm::functions::lua_setfenv::lua_setfenv;
 pub(crate) use luaur_vm::records::lua_debug::LuaDebug;
 

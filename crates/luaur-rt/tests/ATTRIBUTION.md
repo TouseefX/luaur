@@ -22,9 +22,23 @@ and `FromLua`/`IntoLua` impls. Coverage: `tests/mlua_buffer.rs` (ported verbatim
 from mlua's `tests/buffer.rs`), the vector tests in `tests/mlua_luau.rs`, and the
 re-enabled `Value::Vector`/`Value::Buffer` cases in `tests/mlua_value.rs`.
 
-Still deferred (later phases): async, scopes, serde, `Send`/`Sync`, the
-`Compiler` (chunk compile options / `set_vector_ctor`), sandbox/interrupts/
-fflags/heap-dump, the proc-macro `chunk!`, and `#[derive(UserData)]`.
+Phase 3 added `Lua::scope` / `Scope` — lifetime-bounded callbacks and userdata —
+together with the structured `Error::CallbackError`/`Error::CallbackDestructed`
+variants needed to observe post-scope use. Coverage: `tests/mlua_scope.rs`
+(ported from mlua's `tests/scope.rs`). The scope tests that depend on features
+luaur-rt has not yet implemented (`create_userdata_ref`/`_mut` +
+`borrow_scoped`/`borrow_mut_scoped`, `create_any_userdata*` +
+`register_userdata_type`, `call_method`/user-values, the structured
+`Error::BadArgument` from userdata-`self` conversion, and `AnyUserData::destroy`)
+are deferred with an inline note at the top of that file. The Phase-3 error
+change also let `tests/mlua_userdata.rs::test_userdata_take` adopt mlua's exact
+`CallbackError { cause: UserDataDestructed }` assertion (previously approximated
+as `RuntimeError`).
+
+Still deferred (later phases): async, serde, `Send`/`Sync`, the `Compiler`
+(chunk compile options / `set_vector_ctor`), sandbox/interrupts/fflags/heap-dump,
+the proc-macro `chunk!`, and `#[derive(UserData)]`. From `Scope`: the
+userdata-ref borrowing variants and `create_any_userdata*` (see above).
 
 ## Adapted files
 
@@ -42,6 +56,7 @@ fflags/heap-dump, the proc-macro `chunk!`, and `#[derive(UserData)]`.
 | `tests/mlua_chunk.rs`      | `tests/chunk.rs`      |
 | `tests/mlua_luau.rs`       | `tests/luau.rs` (Luau-relevant subset) |
 | `tests/mlua_buffer.rs`     | `tests/buffer.rs` |
+| `tests/mlua_scope.rs`      | `tests/scope.rs` (portable subset) |
 
 ## mlua MIT License
 

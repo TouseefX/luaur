@@ -28,6 +28,7 @@
 //! never a double-unwind, and a genuine Rust panic in user code surfaces as an
 //! ordinary catchable Lua error, not a process abort.
 
+use std::any::TypeId;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use crate::error::{Error, Result};
@@ -35,6 +36,113 @@ use crate::ffi::*;
 use crate::function::Function;
 use crate::multi::MultiValue;
 use crate::state::Lua;
+
+// ---------------------------------------------------------------------------
+// Structured error objects (for errors that must survive the Lua boundary)
+// ---------------------------------------------------------------------------
+//
+// Most callback errors are raised as plain Lua strings via `lua_error`, and
+// `Lua::pop_error` rebuilds a flat `Error::RuntimeError`. That keeps the simple,
+// message-only error path that the rest of the crate (and its tests) rely on.
+//
+// A small set of errors, however, carry *structured* meaning that the caller
+// must be able to pattern-match after the error has travelled up through a
+// `lua_pcall` boundary — specifically `CallbackDestructed` and
+// `UserDataDestructed`, raised when a scope-created callback/userdata is invoked
+// after its `Lua::scope` has ended. For those we push a **userdata error
+// object** holding a boxed `Error` (tagged with a magic `TypeId` header), call
+// `lua_error`, and recover the structured error in `pop_error`, wrapping it in
+// `Error::CallbackError { cause, .. }` exactly like mlua.
+
+/// The fixed leading layout of a wrapped-error userdata. The `TypeId` lets us
+/// recognise our own error object (vs. an arbitrary userdata a script may have
+/// raised) before reading the boxed `Error`.
+#[repr(C)]
+pub(crate) struct WrappedErrorHeader {
+    pub(crate) type_id: TypeId,
+}
+
+/// The wrapped-error userdata storage: a magic `TypeId` followed by the boxed
+/// structured `Error`.
+#[repr(C)]
+struct WrappedError {
+    type_id: TypeId,
+    error: Box<Error>,
+}
+
+/// A private marker type whose `TypeId` tags our wrapped-error userdata.
+struct WrappedErrorTag;
+
+/// The magic tag identifying a luaur-rt wrapped-error userdata.
+pub(crate) fn wrapped_error_tag() -> TypeId {
+    TypeId::of::<WrappedErrorTag>()
+}
+
+/// Destructor for the [`WrappedError`] userdata: drops the boxed `Error`.
+unsafe extern "C" fn wrapped_error_dtor(ptr: *mut c_void) {
+    if !ptr.is_null() {
+        unsafe { core::ptr::drop_in_place(ptr as *mut WrappedError) };
+    }
+}
+
+/// Whether the given error should be raised as a *structured* userdata error
+/// object (so the caller can match on it) rather than a flat string. Only the
+/// scope-destruction errors qualify; everything else keeps the string path to
+/// preserve backward-compatible `RuntimeError` behavior.
+pub(crate) fn is_structured(err: &Error) -> bool {
+    matches!(err, Error::CallbackDestructed | Error::UserDataDestructed)
+}
+
+/// Push a structured [`Error`] as a wrapped-error userdata error object and
+/// invoke [`lua_error`]. Diverges (unwinds via the VM's longjmp).
+///
+/// # Safety
+/// `state` must be a valid `lua_State` with at least one free stack slot.
+pub(crate) unsafe fn raise_structured_error(state: *mut lua_State, err: Error) -> c_int {
+    unsafe {
+        let storage = lua_newuserdatadtor(
+            state,
+            core::mem::size_of::<WrappedError>(),
+            Some(wrapped_error_dtor),
+        );
+        if storage.is_null() {
+            // Fall back to a string error if we cannot allocate the userdata.
+            return raise_lua_error(state, &err.to_string());
+        }
+        core::ptr::write(
+            storage as *mut WrappedError,
+            WrappedError {
+                type_id: wrapped_error_tag(),
+                error: Box::new(err),
+            },
+        );
+        lua_error(state) // diverges (`-> !`)
+    }
+}
+
+/// If the value at stack index `idx` is a luaur-rt wrapped-error userdata,
+/// return a clone of the contained [`Error`]. Does not pop.
+///
+/// # Safety
+/// `state` must be valid and `idx` a valid (absolute) stack index.
+pub(crate) unsafe fn recover_wrapped_error(state: *mut lua_State, idx: c_int) -> Option<Error> {
+    unsafe {
+        if lua_type(state, idx) != ttype::USERDATA {
+            return None;
+        }
+        let ptr = lua_touserdata(state, idx);
+        if ptr.is_null() {
+            return None;
+        }
+        // Read the header's TypeId; only our wrapped errors carry the magic tag.
+        let header = &*(ptr as *const WrappedErrorHeader);
+        if header.type_id != wrapped_error_tag() {
+            return None;
+        }
+        let wrapped = &*(ptr as *const WrappedError);
+        Some((*wrapped.error).clone())
+    }
+}
 
 /// The type-erased boxed callback stored in the trampoline's upvalue userdata.
 pub(crate) type BoxedCallback = Box<dyn Fn(&Lua, MultiValue) -> Result<MultiValue>>;
@@ -92,7 +200,14 @@ unsafe fn trampoline(state: *mut lua_State) -> c_int {
             }
             Ok(Err(err)) => {
                 // 5b. The closure returned Err -> raise it as a Lua error.
-                raise_lua_error(state, &err.to_string())
+                //     Structured errors (scope destruction) travel as a userdata
+                //     error object so the caller can pattern-match on them; all
+                //     others keep the flat string path.
+                if is_structured(&err) {
+                    raise_structured_error(state, err)
+                } else {
+                    raise_lua_error(state, &err.to_string())
+                }
             }
             Err(panic_payload) => {
                 // 5c. The closure panicked -> turn it into a catchable Lua error.
@@ -165,5 +280,47 @@ pub(crate) fn create_callback_function(lua: &Lua, callback: BoxedCallback) -> Re
         );
         // The closure is now on top; take a registry ref.
         Ok(Function::from_ref(lua.pop_ref()))
+    }
+}
+
+/// Neutralise a scope-created callback: replace the boxed closure stored in the
+/// function's upvalue-1 userdata with a sentinel that always returns
+/// [`Error::CallbackDestructed`], dropping the original closure (and thereby
+/// ending any borrows it held).
+///
+/// This is the **invalidation half** of `Lua::scope`'s soundness guarantee: the
+/// original closure (which may borrow non-`'static` data) is dropped here, on
+/// scope exit, *before* the borrowed data's lifetime can end. The Lua function
+/// object itself is left fully valid — only its behavior changes to "destructed"
+/// — so a post-scope call from Lua hits the sentinel and surfaces as
+/// `CallbackError { cause: CallbackDestructed }` instead of touching freed
+/// memory.
+///
+/// Must be called while the scope (and hence the VM) is still alive.
+pub(crate) fn destruct_callback(func: &Function) {
+    let lua = func.lua();
+    let state = lua.state();
+    unsafe {
+        // Push the function, then fetch its upvalue 1 (the callback userdata).
+        func.push_to_stack();
+        let name = lua_getupvalue(state, -1, 1);
+        if name.is_null() {
+            // No upvalue (should not happen for our callbacks); just pop the fn.
+            lua_pop(state, 1);
+            return;
+        }
+        // stack: [func, upvalue-userdata]
+        let ud = lua_touserdata(state, -1);
+        if !ud.is_null() {
+            let slot = ud as *mut BoxedCallback;
+            // Swap in the sentinel; the returned old box is dropped at end of
+            // scope here, running Drop on the original closure's captures.
+            let sentinel: BoxedCallback =
+                Box::new(|_lua, _args| Err(Error::CallbackDestructed));
+            let old = core::ptr::replace(slot, sentinel);
+            drop(old);
+        }
+        // Pop the upvalue and the function.
+        lua_pop(state, 2);
     }
 }

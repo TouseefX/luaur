@@ -10,6 +10,8 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 
+// `Result` is defined below; `Arc<Error>` is used by `Error::CallbackError`.
+
 /// A boxed standard error, used by [`Error::ExternalError`].
 type DynStdError = dyn StdError + Send + Sync;
 
@@ -60,6 +62,34 @@ pub enum Error {
     UserDataTypeMismatch,
     /// A `UserData` value was used after it had been destructed (dropped).
     UserDataDestructed,
+    /// Either a callback or a userdata method was called, but the callback or
+    /// userdata had been destructed.
+    ///
+    /// This happens when a function/userdata created via [`Lua::scope`] is used
+    /// after the scope has ended (so the scope has already dropped the boxed
+    /// closure / invalidated the Lua object). Mirrors
+    /// `mlua::Error::CallbackDestructed`.
+    ///
+    /// [`Lua::scope`]: crate::Lua::scope
+    CallbackDestructed,
+    /// A Rust callback returned `Err`, which was raised as a Lua error and then
+    /// caught at a protected-call boundary (e.g. [`Function::call`]). The
+    /// original error is preserved in `cause`. Mirrors
+    /// `mlua::Error::CallbackError`.
+    ///
+    /// luaur-rt only produces this variant for callback errors that carry
+    /// structured meaning across the Lua boundary (currently
+    /// [`Error::CallbackDestructed`] and [`Error::UserDataDestructed`]); plain
+    /// string callback errors continue to surface as [`Error::RuntimeError`] for
+    /// backward compatibility.
+    ///
+    /// [`Function::call`]: crate::Function::call
+    CallbackError {
+        /// A Lua call-stack traceback (empty when luaur-rt does not capture one).
+        traceback: String,
+        /// The original error returned by the Rust callback.
+        cause: Arc<Error>,
+    },
     /// A `UserData` could not be immutably borrowed because it is already
     /// mutably borrowed.
     UserDataBorrowError,
@@ -132,6 +162,11 @@ impl fmt::Display for Error {
             }
             Error::UserDataTypeMismatch => write!(f, "userdata type mismatch"),
             Error::UserDataDestructed => write!(f, "userdata used after being destructed"),
+            Error::CallbackDestructed => write!(
+                f,
+                "a destructed callback or destructed userdata method was called"
+            ),
+            Error::CallbackError { cause, .. } => write!(f, "{cause}"),
             Error::UserDataBorrowError => write!(f, "userdata already mutably borrowed"),
             Error::UserDataBorrowMutError => write!(f, "userdata already borrowed"),
             Error::CoroutineUnresumable => write!(f, "cannot resume this coroutine"),
@@ -147,6 +182,7 @@ impl StdError for Error {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             Error::ExternalError(err) => Some(&**err),
+            Error::CallbackError { cause, .. } => Some(&**cause),
             _ => None,
         }
     }

@@ -672,6 +672,459 @@ unsafe extern "C" fn userdata_dtor<T>(ptr: *mut c_void) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Scoped (non-'static) userdata — used by `Lua::scope`
+// ---------------------------------------------------------------------------
+//
+// Ordinary userdata stores a `TypeId` so values can be soundly read back out by
+// concrete type (`borrow`/`take`/`is`). That requires `T: 'static`.
+//
+// A scope can create userdata wrapping a **non-`'static`** `T` (e.g. one that
+// borrows from the enclosing stack frame). For these there is no `TypeId`, so
+// instead each scoped userdata is tagged with a process-unique `u64` **marker**.
+// Every method/field/meta closure for that userdata captures the *same* marker,
+// so on dispatch it can confirm the `self` it received is exactly the userdata
+// it belongs to (recovering `&ScopedCell<T>` is sound only after the marker
+// matches — markers are never reused, so no other userdata can collide).
+//
+// Soundness over the scope lifetime: while the scope is active the wrapped `T`
+// is `Some` and methods may form a transient `&T`/`&mut T`. On scope exit the
+// scope's destructor `take()`s the value to `None` (dropping the borrowed `T`,
+// ending its borrows) but leaves the cell memory valid; any later dispatch finds
+// `None` and returns `Error::UserDataDestructed`. The cell itself is freed only
+// when the GC collects the userdata, never while a `&ScopedCell<T>` could exist.
+
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// Source of process-unique scoped-userdata markers.
+static SCOPED_MARKER: AtomicU64 = AtomicU64::new(1);
+
+fn next_scoped_marker() -> u64 {
+    SCOPED_MARKER.fetch_add(1, Ordering::Relaxed)
+}
+
+/// The fixed leading layout of a scoped userdata wrapper: a unique marker used
+/// to recognise the instance (in place of a `TypeId`).
+#[repr(C)]
+struct ScopedHeader {
+    marker: u64,
+}
+
+/// Scoped userdata storage: a unique marker followed by the data cell. Shares
+/// `#[repr(C)]` with [`ScopedHeader`] so the marker is at offset 0 for any `T`.
+#[repr(C)]
+struct ScopedCell<T> {
+    marker: u64,
+    cell: RefCell<Option<T>>,
+}
+
+/// Destructor for the [`ScopedCell<T>`] stored inside a scoped userdata.
+unsafe extern "C" fn scoped_userdata_dtor<T>(ptr: *mut c_void) {
+    if !ptr.is_null() {
+        unsafe { core::ptr::drop_in_place(ptr as *mut ScopedCell<T>) };
+    }
+}
+
+/// Recover `&ScopedCell<T>` from a `self` userdata [`Value`] (Lua argument 1),
+/// verifying the per-instance `marker`. A mismatch is an
+/// [`Error::UserDataTypeMismatch`].
+///
+/// # Safety
+/// The caller guarantees that any userdata carrying `marker` was created as a
+/// `ScopedCell<T>` for this exact `T` (which holds because each marker is handed
+/// out to exactly one `create_scoped_userdata::<T>` call).
+unsafe fn recover_scoped_cell<'a, T>(
+    lua: &Lua,
+    value: &Value,
+    marker: u64,
+) -> Result<&'a ScopedCell<T>> {
+    match value {
+        Value::UserData(ud) => {
+            let state = lua.state();
+            unsafe {
+                ud.reference.push();
+                let ptr = lua_touserdata(state, -1);
+                lua_pop(state, 1);
+                if ptr.is_null() {
+                    return Err(Error::UserDataTypeMismatch);
+                }
+                let header = &*(ptr as *const ScopedHeader);
+                if header.marker != marker {
+                    return Err(Error::UserDataTypeMismatch);
+                }
+                Ok(&*(ptr as *const ScopedCell<T>))
+            }
+        }
+        _ => Err(Error::UserDataTypeMismatch),
+    }
+}
+
+/// A concrete [`UserDataMethods`] / [`UserDataFields`] implementation for a
+/// scoped (non-`'static`) userdata instance: identical surface to [`Collector`],
+/// but it recovers the data cell by the per-instance `marker` rather than a
+/// `TypeId`, so it works for non-`'static` `T`.
+struct ScopedCollector<T> {
+    marker: u64,
+    methods: Vec<Registered>,
+    fields: Vec<FieldEntry>,
+    _phantom: PhantomData<T>,
+}
+
+impl<T> ScopedCollector<T> {
+    fn new(marker: u64) -> Self {
+        ScopedCollector {
+            marker,
+            methods: Vec::new(),
+            fields: Vec::new(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> UserDataMethods<T> for ScopedCollector<T> {
+    fn add_method<M, A, R>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &T, A) -> Result<R> + 'static,
+        A: FromLuaMulti,
+        R: IntoLuaMulti,
+    {
+        let marker = self.marker;
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let cell = unsafe { recover_scoped_cell::<T>(lua, &this, marker)? };
+            let a = A::from_lua_multi(args, lua)?;
+            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
+            let r = method(lua, data, a)?;
+            r.into_lua_multi(lua)
+        });
+        self.methods.push(Registered {
+            name: name.into(),
+            is_meta: false,
+            callback,
+        });
+    }
+
+    fn add_method_mut<M, A, R>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &mut T, A) -> Result<R> + 'static,
+        A: FromLuaMulti,
+        R: IntoLuaMulti,
+    {
+        let marker = self.marker;
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let cell = unsafe { recover_scoped_cell::<T>(lua, &this, marker)? };
+            let a = A::from_lua_multi(args, lua)?;
+            let mut borrowed = cell
+                .cell
+                .try_borrow_mut()
+                .map_err(|_| Error::UserDataBorrowMutError)?;
+            let data = borrowed.as_mut().ok_or(Error::UserDataDestructed)?;
+            let r = method(lua, data, a)?;
+            r.into_lua_multi(lua)
+        });
+        self.methods.push(Registered {
+            name: name.into(),
+            is_meta: false,
+            callback,
+        });
+    }
+
+    fn add_function<F, A, R>(&mut self, name: impl Into<String>, function: F)
+    where
+        F: Fn(&Lua, A) -> Result<R> + 'static,
+        A: FromLuaMulti,
+        R: IntoLuaMulti,
+    {
+        let callback: BoxedCallback = Box::new(move |lua, args| {
+            let a = A::from_lua_multi(args, lua)?;
+            let r = function(lua, a)?;
+            r.into_lua_multi(lua)
+        });
+        self.methods.push(Registered {
+            name: name.into(),
+            is_meta: false,
+            callback,
+        });
+    }
+
+    fn add_meta_method<M, A, R>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &T, A) -> Result<R> + 'static,
+        A: FromLuaMulti,
+        R: IntoLuaMulti,
+    {
+        let marker = self.marker;
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let cell = unsafe { recover_scoped_cell::<T>(lua, &this, marker)? };
+            let a = A::from_lua_multi(args, lua)?;
+            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
+            let r = method(lua, data, a)?;
+            r.into_lua_multi(lua)
+        });
+        self.methods.push(Registered {
+            name: name.into(),
+            is_meta: true,
+            callback,
+        });
+    }
+
+    fn add_meta_method_mut<M, A, R>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &mut T, A) -> Result<R> + 'static,
+        A: FromLuaMulti,
+        R: IntoLuaMulti,
+    {
+        let marker = self.marker;
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let cell = unsafe { recover_scoped_cell::<T>(lua, &this, marker)? };
+            let a = A::from_lua_multi(args, lua)?;
+            let mut borrowed = cell
+                .cell
+                .try_borrow_mut()
+                .map_err(|_| Error::UserDataBorrowMutError)?;
+            let data = borrowed.as_mut().ok_or(Error::UserDataDestructed)?;
+            let r = method(lua, data, a)?;
+            r.into_lua_multi(lua)
+        });
+        self.methods.push(Registered {
+            name: name.into(),
+            is_meta: true,
+            callback,
+        });
+    }
+}
+
+impl<T> UserDataFields<T> for ScopedCollector<T> {
+    fn add_field<V>(&mut self, name: impl Into<String>, value: V)
+    where
+        V: IntoLua + Clone + 'static,
+    {
+        let callback: BoxedCallback = Box::new(move |lua, _args| {
+            let v = value.clone().into_lua(lua)?;
+            v.into_lua_multi(lua)
+        });
+        self.fields.push(FieldEntry {
+            name: name.into(),
+            is_get: true,
+            callback,
+        });
+    }
+
+    fn add_field_method_get<M, R>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &T) -> Result<R> + 'static,
+        R: IntoLua,
+    {
+        let marker = self.marker;
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let cell = unsafe { recover_scoped_cell::<T>(lua, &this, marker)? };
+            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
+            let r = method(lua, data)?;
+            r.into_lua_multi(lua)
+        });
+        self.fields.push(FieldEntry {
+            name: name.into(),
+            is_get: true,
+            callback,
+        });
+    }
+
+    fn add_field_method_set<M, A>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &mut T, A) -> Result<()> + 'static,
+        A: FromLua,
+    {
+        let marker = self.marker;
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let cell = unsafe { recover_scoped_cell::<T>(lua, &this, marker)? };
+            let val = A::from_lua(args.pop_front().unwrap_or(Value::Nil), lua)?;
+            let mut borrowed = cell
+                .cell
+                .try_borrow_mut()
+                .map_err(|_| Error::UserDataBorrowMutError)?;
+            let data = borrowed.as_mut().ok_or(Error::UserDataDestructed)?;
+            method(lua, data, val)?;
+            ().into_lua_multi(lua)
+        });
+        self.fields.push(FieldEntry {
+            name: name.into(),
+            is_get: false,
+            callback,
+        });
+    }
+
+    fn add_field_function_get<F, R>(&mut self, name: impl Into<String>, function: F)
+    where
+        F: Fn(&Lua, AnyUserData) -> Result<R> + 'static,
+        R: IntoLua,
+    {
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let ud = AnyUserData::from_lua(this, lua)?;
+            let r = function(lua, ud)?;
+            r.into_lua_multi(lua)
+        });
+        self.fields.push(FieldEntry {
+            name: name.into(),
+            is_get: true,
+            callback,
+        });
+    }
+
+    fn add_field_function_set<F, A>(&mut self, name: impl Into<String>, function: F)
+    where
+        F: Fn(&Lua, AnyUserData, A) -> Result<()> + 'static,
+        A: FromLua,
+    {
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let ud = AnyUserData::from_lua(this, lua)?;
+            let val = A::from_lua(args.pop_front().unwrap_or(Value::Nil), lua)?;
+            function(lua, ud, val)?;
+            ().into_lua_multi(lua)
+        });
+        self.fields.push(FieldEntry {
+            name: name.into(),
+            is_get: false,
+            callback,
+        });
+    }
+}
+
+/// Build a scoped (non-`'static`) userdata wrapping `data`, with a metatable
+/// assembled from `T::add_fields` + `T::add_methods`. Returns the
+/// [`AnyUserData`] handle plus a closure that, when called, neutralises the
+/// userdata (drops `data`, leaving later access to error with
+/// [`Error::UserDataDestructed`]). The neutraliser is what `Lua::scope`
+/// registers as a destructor.
+///
+/// # Safety
+/// The returned [`AnyUserData`] must not be used to read `data` back out by
+/// type (there is no `TypeId`); only metatable-driven method/field/meta dispatch
+/// is supported. The scope must invoke the returned neutraliser before `data`'s
+/// borrowed lifetime ends.
+pub(crate) fn create_scoped_userdata<T: UserData>(
+    lua: &Lua,
+    data: T,
+) -> Result<(AnyUserData, Box<dyn FnOnce()>)> {
+    let state = lua.state();
+    let marker = next_scoped_marker();
+
+    // 1. Collect fields, methods, and meta-methods (marker-keyed recovery).
+    let mut collector = ScopedCollector::<T>::new(marker);
+    T::add_fields(&mut collector);
+    T::add_methods(&mut collector);
+
+    // 2. Build the method table + meta-methods + field getter/setter tables.
+    let method_table = lua.create_table();
+    let metatable = lua.create_table();
+    for item in collector.methods {
+        let func = create_callback_function(lua, item.callback)?;
+        if item.is_meta {
+            metatable.set(item.name, func)?;
+        } else {
+            method_table.set(item.name, func)?;
+        }
+    }
+
+    let has_fields = !collector.fields.is_empty();
+    let getters = lua.create_table();
+    let setters = lua.create_table();
+    for field in collector.fields {
+        let func = create_callback_function(lua, field.callback)?;
+        if field.is_get {
+            getters.set(field.name, func)?;
+        } else {
+            setters.set(field.name, func)?;
+        }
+    }
+
+    if has_fields {
+        let getters_c = getters.clone();
+        let methods_c = method_table.clone();
+        let index_fn = lua.create_function(move |_, (ud, key): (Value, Value)| {
+            let getter: Value = getters_c.get(key.clone())?;
+            if let Value::Function(f) = getter {
+                return f.call::<Value>(ud);
+            }
+            let m: Value = methods_c.get(key)?;
+            Ok(m)
+        })?;
+        metatable.set("__index", index_fn)?;
+
+        let setters_c = setters.clone();
+        let newindex_fn =
+            lua.create_function(move |_, (ud, key, val): (Value, Value, Value)| {
+                let setter: Value = setters_c.get(key.clone())?;
+                if let Value::Function(f) = setter {
+                    f.call::<()>((ud, val))?;
+                    return Ok(());
+                }
+                let name = key.to_string().unwrap_or_default();
+                Err(Error::RuntimeError(format!(
+                    "attempt to set unknown field '{name}' on userdata"
+                )))
+            })?;
+        metatable.set("__newindex", newindex_fn)?;
+    } else {
+        metatable.set("__index", method_table)?;
+    }
+
+    // 3. Allocate the scoped userdata holding ScopedCell<T> and move `data` in.
+    let ud = unsafe {
+        let storage = lua_newuserdatadtor(
+            state,
+            core::mem::size_of::<ScopedCell<T>>(),
+            Some(scoped_userdata_dtor::<T>),
+        );
+        if storage.is_null() {
+            return Err(Error::runtime("luaur-rt: failed to allocate scoped userdata"));
+        }
+        core::ptr::write(
+            storage as *mut ScopedCell<T>,
+            ScopedCell {
+                marker,
+                cell: RefCell::new(Some(data)),
+            },
+        );
+        metatable.push_to_stack();
+        lua_setmetatable(state, -2);
+        AnyUserData::from_ref(lua.pop_ref())
+    };
+
+    // 4. Build the neutraliser: on scope exit, take the data out of the cell,
+    //    dropping the (possibly borrowing) `T` while the cell memory stays valid.
+    let ud_for_dtor = ud.clone();
+    let neutralise: Box<dyn FnOnce()> = Box::new(move || {
+        let state = ud_for_dtor.reference.state();
+        unsafe {
+            ud_for_dtor.reference.push();
+            let ptr = lua_touserdata(state, -1);
+            lua_pop(state, 1);
+            if ptr.is_null() {
+                return;
+            }
+            let cell = &*(ptr as *const ScopedCell<T>);
+            // Drop the data (ends borrows). If currently borrowed (a method is
+            // somehow live), `try_borrow_mut` fails and we leave it — but scope
+            // exit only happens after `f` returns, so no method is in flight.
+            if let Ok(mut guard) = cell.cell.try_borrow_mut() {
+                let _ = guard.take();
+            }
+        }
+    });
+
+    Ok((ud, neutralise))
+}
+
 /// Build a userdata value wrapping `data`, with a metatable assembled from the
 /// type's [`UserData::add_fields`] + [`UserData::add_methods`].
 pub(crate) fn create_userdata<T: UserData + 'static>(lua: &Lua, data: T) -> Result<AnyUserData> {

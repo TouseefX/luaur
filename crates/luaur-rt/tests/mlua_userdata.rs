@@ -127,8 +127,14 @@ fn test_userdata_take() -> Result<()> {
         r => panic!("expected `UserDataDestructed` error, got {:?}", r),
     }
     // Calling a method on the destructed userdata surfaces the destructed state.
+    // Matches mlua's `test_userdata_take`: a `UserDataDestructed` returned from a
+    // Rust callback now travels across the Lua boundary as the structured
+    // `CallbackError { cause: UserDataDestructed }` (added with `Lua::scope`).
     match lua.load("userdata:num()").exec() {
-        Err(Error::RuntimeError(_)) => {}
+        Err(Error::CallbackError { ref cause, .. }) => match cause.as_ref() {
+            Error::UserDataDestructed => {}
+            err => panic!("expected `UserDataDestructed`, got {:?}", err),
+        },
         r => panic!("improper return for destructed userdata: {:?}", r),
     }
 

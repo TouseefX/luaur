@@ -413,6 +413,17 @@ impl Lua {
     pub(crate) fn pop_error(&self, _status: c_int) -> Error {
         let state = self.state();
         unsafe {
+            // First, see if the error object is one of our *structured* error
+            // userdata (raised for scope-destruction errors). If so, recover the
+            // original `Error` and wrap it in `CallbackError`, mirroring mlua.
+            if let Some(cause) = crate::callback::recover_wrapped_error(state, -1) {
+                lua_pop(state, 1);
+                return Error::CallbackError {
+                    traceback: String::new(),
+                    cause: std::sync::Arc::new(cause),
+                };
+            }
+            // Otherwise, fall back to the flat string error path.
             let mut len = 0usize;
             let s = lua_tolstring(state, -1, &mut len);
             let msg = if s.is_null() {

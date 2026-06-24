@@ -38,7 +38,7 @@
 //! The following parts of mlua's surface are intentionally **out of scope** and
 //! are noted here rather than implemented:
 //!
-//! - `Scope` (P3) and `async` support (P4).
+//! - `async` support (P4).
 //! - `serde` integration (P4).
 //! - Multi-VM `Send`/`Sync` (`WeakLua`, send-able handles) (P4).
 //! - Thread event callbacks (`ThreadEvent`/`ThreadTriggers`/
@@ -65,6 +65,7 @@ mod function;
 mod metamethod;
 mod multi;
 mod registry;
+mod scope;
 mod state;
 mod string;
 mod table;
@@ -81,6 +82,7 @@ pub use function::{Function, FunctionInfo};
 pub use metamethod::MetaMethod;
 pub use multi::{MultiValue, Variadic};
 pub use registry::RegistryKey;
+pub use scope::Scope;
 pub use state::Lua;
 pub use string::LuaString;
 pub use table::{Table, TablePairs, TableSequence};
@@ -99,8 +101,8 @@ pub mod prelude {
     pub use crate::{
         AnyUserData, Buffer, Chunk, Error, ExternalError, ExternalResult, FromLua, FromLuaMulti,
         Function, IntoLua, IntoLuaMulti, Lua, LuaString, MetaMethod, MultiValue, RegistryKey,
-        Result, Table, Thread, ThreadStatus, UserData, UserDataFields, UserDataMethods, Value,
-        Variadic, Vector,
+        Result, Scope, Table, Thread, ThreadStatus, UserData, UserDataFields, UserDataMethods,
+        Value, Variadic, Vector,
     };
 
     // mlua-style `Lua*`-prefixed aliases for users coming from mlua's prelude.

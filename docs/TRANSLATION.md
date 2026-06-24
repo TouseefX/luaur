@@ -29,6 +29,13 @@ bytecode differential confirms the compiler→VM pipeline against the reference.
 **Timeline:** first commit **2026-06-09**, feature-complete + green through **2026-06-24**
 — ~15 days, 783 commits, peak 165 commits in a single day.
 
+> **Scope note.** Everything in this document — and every number above — is about the
+> *engine*: the faithful C++→Rust translation of Luau's compiler, VM, and type checker.
+> The ergonomic `luaur-rt` crate (the mlua-style `Lua`/`UserData` API) is a **Rust-native
+> addition** with no C++ counterpart — it is hand-written, not translated, and is **not**
+> part of these stats or the "faithful" claim. It exists so luaur is pleasant to *use* as a
+> library; the translation is what makes the engine underneath trustworthy.
+
 ## The method
 
 The skeleton is deliberately unsurprising — and saying so up front is the point. Graphing

@@ -38,15 +38,17 @@ Publish top-to-bottom; each layer only depends on layers above it.
 8.  luaur-analysis      (ast, bytecode, compiler, config, vm, common)
 9.  luaur-require       (+ config)
 10. luaur-cli-lib       (+ config)
+11. luaur-rt            (vm, compiler, common — the mlua-style API)
 
-# Layer 5 — leaves (wasm + CLIs)
-11. luaur-web           (analysis, ...)
-12. luaur-ast-cli
-13. luaur-analyze-cli
-14. luaur-bytecode-cli
-15. luaur-compile-cli
-16. luaur-reduce-cli
-17. luaur-repl-cli
+# Layer 5 — umbrella + leaves (wasm + CLIs)
+12. luaur               (umbrella: re-exports every lib + luaur-rt — publish after them all)
+13. luaur-web           (analysis, ...)
+14. luaur-ast-cli
+15. luaur-analyze-cli
+16. luaur-bytecode-cli
+17. luaur-compile-cli
+18. luaur-reduce-cli
+19. luaur-repl-cli
 ```
 
 ## Recommended dry run
@@ -54,7 +56,7 @@ Publish top-to-bottom; each layer only depends on layers above it.
 ```sh
 # Verify every publishable crate packages cleanly, in order, without uploading:
 for c in luaur-common luaur-ast luaur-bytecode luaur-vm luaur-compiler luaur-code-gen \
-         luaur-config luaur-analysis luaur-require luaur-cli-lib luaur-web \
+         luaur-config luaur-analysis luaur-require luaur-cli-lib luaur-rt luaur luaur-web \
          luaur-ast-cli luaur-analyze-cli luaur-bytecode-cli luaur-compile-cli \
          luaur-reduce-cli luaur-repl-cli; do
   cargo publish -p "$c" --dry-run || { echo "FAILED: $c"; break; }

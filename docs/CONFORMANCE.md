@@ -46,6 +46,13 @@ pipeline end-to-end against the reference implementation.
   client hooks are faithful no-ops outside their respective environments, exactly as the
   C++ macros compile to no-ops in standard builds.
 
+## Out of scope by construction: the ergonomic API
+
+The `luaur-rt` crate (the mlua-style `Lua`/`Value`/`UserData` API) has **no upstream C++
+counterpart** — Luau exposes only a C API. There is therefore nothing to "conform" to; it
+is a Rust-native addition, validated by its own unit tests (not the conformance suite).
+The conformance claims here are about the translated *engine* only.
+
 ## Known gaps
 
 - **Documented C++-isms:** a small number of C++ special-member functions (copy/move

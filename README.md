@@ -8,15 +8,15 @@ suite: **5,347 ported unit tests pass, and all 293 upstream conformance scripts 
 byte-identically** on the Rust VM (against Luau commit [`8f33df9`](https://github.com/luau-lang/luau)).
 
 ```rust
-// Compile and run Luau on a pure-Rust VM — no C, no FFI.
-use luaur::{compile, eval};
+// A safe, mlua-style API over a pure-Rust Luau VM — no C, no FFI, no emscripten.
+use luaur::Lua;
 
-// Run a script on a fresh VM (opens the standard library, like the `luau` CLI):
-eval("print('hello from luaur')").unwrap();
+let lua = Lua::new();
 
-// …or just compile source to bytecode:
-let bytecode: Vec<u8> = compile("return 2 + 2").unwrap();
-assert!(!bytecode.is_empty());
+// Expose a Rust function to Luau, then run a script that calls it:
+lua.globals().set("add", lua.create_function(|_, (a, b): (i64, i64)| Ok(a + b))?)?;
+let sum: i64 = lua.load("return add(2, 3)").eval()?;
+assert_eq!(sum, 5);
 ```
 
 ## Why this exists
@@ -39,6 +39,39 @@ It's the **atomization and per-node context engineering** that let the obvious a
 survive to production scale as a *convergent* system — see
 [`docs/TRANSLATION.md`](docs/TRANSLATION.md) for how it was actually built, the timeline,
 the model economics, and the war stories.
+
+## A faithful engine — *plus* an mlua-style API
+
+luaur is two things. The translated engine above is a *faithful* port of Luau's C++.
+On top of it sits **`luaur-rt`**, a safe, ergonomic Rust API whose interface deliberately
+mirrors [`mlua`](https://github.com/mlua-rs/mlua), so embedders are immediately at home —
+`Lua`, `Value`, `Table`, `Function`, `FromLua`/`IntoLua`, `create_function`, `UserData`.
+*(This high-level layer is a Rust-native addition; it has no C++ counterpart and is **not**
+part of the "faithful translation" claim — it's the value-add for using luaur as a library.)*
+
+Expose Rust types — with methods and metamethods — to Luau:
+
+```rust
+use luaur::{Lua, UserData, UserDataMethods};
+
+struct Vec2 { x: f64, y: f64 }
+impl UserData for Vec2 {
+    fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_method("magnitude", |_, v, ()| Ok((v.x * v.x + v.y * v.y).sqrt()));
+        // metamethods too: methods.add_meta_method("__add", ...)
+    }
+}
+
+let lua = Lua::new();
+lua.globals().set("v", lua.create_userdata(Vec2 { x: 3.0, y: 4.0 })?)?;
+let m: f64 = lua.load("return v:magnitude()").eval()?;   // 5.0
+```
+
+A Rust `Err` (or even a `panic!`) returned from a callback surfaces as a catchable Lua
+error, not a crash. Unlike `mlua` — which FFI-binds the C/C++ Luau and needs a C toolchain —
+this is **pure Rust**, so it runs anywhere Rust does, including `wasm32-unknown-unknown`.
+The lower-level `luaur::{compile, eval, check}` helpers and the raw C-style VM API
+(`luaur::vm`) are there when you want them.
 
 ## How idiomatic is it?
 
@@ -64,7 +97,8 @@ luaur is published as independent crates so you can depend on exactly the layer 
 
 | Crate | What it is |
 |---|---|
-| [`luaur`](crates/luaur) | Umbrella crate: re-exports every layer + `compile`/`eval` helpers |
+| [`luaur`](crates/luaur) | **Start here.** Umbrella: the mlua-style API + `compile`/`eval`/`check` helpers, re-exporting every layer |
+| [`luaur-rt`](crates/luaur-rt) | The safe, ergonomic **mlua-style API** (`Lua`, `create_function`, `UserData`, `FromLua`/`IntoLua`) |
 | [`luaur-common`](crates/luaur-common) | Foundations: `SmallVector`, `DenseHashMap`, `Variant`, FastFlags |
 | [`luaur-ast`](crates/luaur-ast) | Lexer, parser, AST |
 | [`luaur-bytecode`](crates/luaur-bytecode) | Bytecode format + builder |

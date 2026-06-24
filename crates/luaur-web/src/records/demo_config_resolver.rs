@@ -1,6 +1,9 @@
 //! Port of `DemoConfigResolver : Luau::ConfigResolver` (`CLI/src/Web.cpp:49-62`).
 //!
-//! The luau.org/demo config resolver, defaulting to `Mode::Strict`. Like the
+//! The luau.org/demo config resolver. Defaults to `Mode::Nonstrict` so each
+//! script's own mode comment governs (a deliberate playground deviation from
+//! `Web.cpp`'s hard `Strict`; see `methods/demo_config_resolver_demo_config_resolver`).
+//! Like the
 //! analysis `ConfigResolver` (a struct with a fn-pointer vtable slot for the
 //! single pure virtual `getConfig`), this concrete subclass is `#[repr(C)]` with
 //! `base: ConfigResolver` first so a `*const ConfigResolver` (the vtable

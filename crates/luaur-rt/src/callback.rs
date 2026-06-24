@@ -145,6 +145,16 @@ pub(crate) unsafe fn recover_wrapped_error(state: *mut lua_State, idx: c_int) ->
 }
 
 /// The type-erased boxed callback stored in the trampoline's upvalue userdata.
+///
+/// Under the `send` feature the boxed closure is additionally `Send` (so a
+/// callback may capture `Send` data moved in from another thread and the whole
+/// VM can be moved across threads). Without the feature the `+ Send` bound is
+/// absent and this is byte-identical to before. See [`crate::sync::MaybeSend`].
+#[cfg(feature = "send")]
+pub(crate) type BoxedCallback = Box<dyn Fn(&Lua, MultiValue) -> Result<MultiValue> + Send>;
+
+/// See the `send`-gated variant above.
+#[cfg(not(feature = "send"))]
 pub(crate) type BoxedCallback = Box<dyn Fn(&Lua, MultiValue) -> Result<MultiValue>>;
 
 /// The destructor installed on the callback userdata: reconstruct the `Box`

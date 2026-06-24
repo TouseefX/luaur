@@ -1,25 +1,27 @@
 //! The [`Function`] handle. Mirrors `mlua::Function`.
 
-use std::rc::Rc;
-
 use crate::error::Result;
 use crate::ffi::*;
 use crate::multi::MultiValue;
 use crate::state::{Lua, LuaRef};
+use crate::sync::{NotSync, XRc, NOT_SYNC};
 use crate::traits::{FromLuaMulti, IntoLuaMulti};
 
 /// A handle to a callable Lua value (a Lua closure or a Rust function).
 ///
-/// Mirrors `mlua::Function`.
+/// Mirrors `mlua::Function`. Under the `send` feature it is `Send` but never
+/// `Sync` — see [`crate::sync::NotSync`].
 #[derive(Clone)]
 pub struct Function {
-    pub(crate) reference: Rc<LuaRef>,
+    pub(crate) reference: XRc<LuaRef>,
+    pub(crate) _not_sync: NotSync,
 }
 
 impl Function {
     pub(crate) fn from_ref(reference: LuaRef) -> Function {
         Function {
-            reference: Rc::new(reference),
+            reference: XRc::new(reference),
+            _not_sync: NOT_SYNC,
         }
     }
 

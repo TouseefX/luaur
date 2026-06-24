@@ -1,8 +1,11 @@
 //! Integration-style unit tests exercising the mlua-style API end to end.
 
 use crate::prelude::*;
-use std::cell::Cell;
-use std::rc::Rc;
+// `Arc<AtomicI64>` (rather than `Rc<Cell<i64>>`) so this capturing-closure test
+// also compiles under the `send` feature, where `create_function`'s closure
+// must be `Send`. Behaviorally identical in the single-threaded default build.
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::Arc;
 
 #[test]
 fn create_function_and_call_from_lua() {
@@ -18,20 +21,17 @@ fn create_function_and_call_from_lua() {
 #[test]
 fn capturing_closure_counter() {
     let lua = Lua::new();
-    let counter = Rc::new(Cell::new(0i64));
+    let counter = Arc::new(AtomicI64::new(0));
     let c2 = counter.clone();
     let inc = lua
-        .create_function(move |_, ()| {
-            c2.set(c2.get() + 1);
-            Ok(c2.get())
-        })
+        .create_function(move |_, ()| Ok(c2.fetch_add(1, Ordering::SeqCst) + 1))
         .unwrap();
     lua.globals().set("inc", inc).unwrap();
     lua.load("inc(); inc(); inc()").exec().unwrap();
-    assert_eq!(counter.get(), 3);
+    assert_eq!(counter.load(Ordering::SeqCst), 3);
     let last: i64 = lua.load("return inc()").eval().unwrap();
     assert_eq!(last, 4);
-    assert_eq!(counter.get(), 4);
+    assert_eq!(counter.load(Ordering::SeqCst), 4);
 }
 
 #[test]

@@ -15,18 +15,27 @@
 //!
 //! `Lua` is single-threaded (`Rc`, so `!Send`/`!Sync`), matching mlua's
 //! non-`Send` default.
+//!
+//! ## The `send` feature
+//!
+//! Under the `send` feature (mirroring mlua) the shared interior uses
+//! [`XRc`] = `Arc` instead of `Rc`, and [`LuaInner`] / [`LuaRef`] carry a
+//! documented `unsafe impl Send`. That makes [`Lua`] and every handle `Send` so
+//! the whole VM can be **moved** to another thread. It is *not* made `Sync`: the
+//! VM is still single-threaded, the user must serialize all access, and only the
+//! ownership *transfer* crosses threads (exactly mlua's `send` contract).
 
 use std::cell::Cell;
-use std::rc::Rc;
 
 use crate::error::{Error, Result};
 use crate::ffi::*;
+use crate::sync::{MaybeSend, MaybeSync, NotSync, XRc, NOT_SYNC};
 use crate::value::Value;
 
 /// The reference-counted, shared interior of a [`Lua`] instance.
 ///
 /// Held by [`Lua`] and cloned into every long-lived handle. When the last
-/// `Rc<LuaInner>` is dropped, [`Drop`] closes the `lua_State`.
+/// `XRc<LuaInner>` is dropped, [`Drop`] closes the `lua_State`.
 pub(crate) struct LuaInner {
     /// The owned VM state pointer. Never null while this `LuaInner` exists.
     pub(crate) state: *mut lua_State,
@@ -44,13 +53,33 @@ impl Drop for LuaInner {
     }
 }
 
+// Under the `send` feature, allow a `Lua` (and every handle, transitively) to be
+// **moved** across threads. The raw `*mut lua_State` is `!Send`/`!Sync` by
+// default; these impls encode luaur-rt's documented contract — single-threaded
+// *use*, only *ownership transfer* across threads, never concurrent access.
+//
+// `Send` is the property we actually expose. `Sync` is needed only as an
+// internal obligation: `XRc<LuaInner>` is `Arc<LuaInner>` under the feature, and
+// `Arc<T>: Send` requires `T: Send + Sync`. We therefore mark `LuaInner` (the
+// non-public interior) `Sync`, and then keep the *public* `Lua`/handle types
+// `!Sync` with a `NotSync` phantom marker (see [`NotSync`]). Net effect: the VM
+// can be moved across threads but never shared/accessed concurrently — exactly
+// mlua's `send` contract, minus mlua's extra `Sync` (luaur-rt stays `!Sync`).
+#[cfg(feature = "send")]
+unsafe impl Send for LuaInner {}
+#[cfg(feature = "send")]
+unsafe impl Sync for LuaInner {}
+
 /// A handle to a Lua interpreter.
 ///
 /// Mirrors `mlua::Lua`. Cloning produces another handle to the **same** VM
 /// (the inner state is shared via `Rc`), exactly like mlua.
 #[derive(Clone)]
 pub struct Lua {
-    pub(crate) inner: Rc<LuaInner>,
+    pub(crate) inner: XRc<LuaInner>,
+    /// Keeps `Lua` `!Sync` under the `send` feature (the VM is move-only, never
+    /// shareable). A zero-sized `()` under the default build. See [`NotSync`].
+    pub(crate) _not_sync: NotSync,
 }
 
 impl Lua {
@@ -66,7 +95,8 @@ impl Lua {
             assert!(!state.is_null(), "lua_l_newstate returned null");
             lua_l_openlibs(state);
             Lua {
-                inner: Rc::new(LuaInner { state, owned: true }),
+                inner: XRc::new(LuaInner { state, owned: true }),
+                _not_sync: NOT_SYNC,
             }
         }
     }
@@ -80,7 +110,8 @@ impl Lua {
         let state = lua_l_newstate();
         assert!(!state.is_null(), "lua_l_newstate returned null");
         Lua {
-            inner: Rc::new(LuaInner { state, owned: true }),
+            inner: XRc::new(LuaInner { state, owned: true }),
+            _not_sync: NOT_SYNC,
         }
     }
 
@@ -98,10 +129,11 @@ impl Lua {
     /// and all handles cloned from it.
     pub(crate) unsafe fn from_borrowed(state: *mut lua_State) -> Lua {
         Lua {
-            inner: Rc::new(LuaInner {
+            inner: XRc::new(LuaInner {
                 state,
                 owned: false,
             }),
+            _not_sync: NOT_SYNC,
         }
     }
 
@@ -227,7 +259,7 @@ impl Lua {
     /// as a catchable Lua error.
     pub fn create_function<F, A, R>(&self, func: F) -> Result<Function>
     where
-        F: Fn(&Lua, A) -> Result<R> + 'static,
+        F: Fn(&Lua, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti,
     {
@@ -242,7 +274,10 @@ impl Lua {
     /// Create userdata wrapping a `T: UserData` value.
     ///
     /// Mirrors `mlua::Lua::create_userdata`.
-    pub fn create_userdata<T: UserData + 'static>(&self, data: T) -> Result<AnyUserData> {
+    pub fn create_userdata<T: UserData + MaybeSend + MaybeSync + 'static>(
+        &self,
+        data: T,
+    ) -> Result<AnyUserData> {
         crate::userdata::create_userdata(self, data)
     }
 
@@ -346,17 +381,28 @@ impl Lua {
 /// An owned registry reference to a Lua value.
 ///
 /// Keeps both the value reachable (registry slot) and the VM alive (the cloned
-/// `Rc<LuaInner>`). On drop it releases the slot via [`lua_unref`].
+/// `XRc<LuaInner>`). On drop it releases the slot via [`lua_unref`].
 pub(crate) struct LuaRef {
-    inner: Rc<LuaInner>,
+    inner: XRc<LuaInner>,
     id: Cell<c_int>,
 }
+
+// `LuaRef` is shared behind `XRc<LuaRef>` (`Arc<LuaRef>` under the feature) by
+// every handle, so it must be `Send + Sync` for the handles to be `Send`. The
+// `Cell<c_int>` slot is only ever mutated on the owning thread (the move-only
+// contract); marking `LuaRef` `Sync` is sound under that contract. Handles stay
+// `!Sync` via their own `NotSync` markers.
+#[cfg(feature = "send")]
+unsafe impl Send for LuaRef {}
+#[cfg(feature = "send")]
+unsafe impl Sync for LuaRef {}
 
 impl LuaRef {
     /// The owning [`Lua`] handle (a fresh borrow sharing the same inner state).
     pub(crate) fn lua(&self) -> Lua {
         Lua {
             inner: self.inner.clone(),
+            _not_sync: NOT_SYNC,
         }
     }
 

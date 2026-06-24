@@ -70,6 +70,18 @@
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 
+// The `send` and `async` features are currently mutually exclusive. luaur-rt's
+// async bridge relies on thread-local waker/ownership maps and non-`Send`
+// `Pin<Box<dyn Future>>` callbacks; making the `send`+`async` combination sound
+// is deferred (see `Cargo.toml`). `send` alone — the core `Send` handles that
+// `tests/send.rs` checks — is fully supported.
+#[cfg(all(feature = "send", feature = "async"))]
+compile_error!(
+    "the `send` and `async` features are mutually exclusive in luaur-rt for now: \
+     making the async bridge (thread-local wakers + non-Send futures) `Send` is deferred. \
+     Enable one or the other, not both."
+);
+
 #[cfg(feature = "async")]
 #[path = "async.rs"]
 mod async_support;
@@ -88,6 +100,7 @@ mod scope;
 mod serde;
 mod state;
 mod string;
+mod sync;
 mod table;
 mod thread;
 mod traits;
@@ -105,6 +118,7 @@ pub use registry::RegistryKey;
 pub use scope::Scope;
 pub use state::Lua;
 pub use string::LuaString;
+pub use sync::{MaybeSend, MaybeSync};
 pub use table::{Table, TablePairs, TableSequence};
 pub use thread::{Thread, ThreadStatus};
 pub use traits::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};

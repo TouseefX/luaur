@@ -13,10 +13,9 @@
 //! which [`Lua`] minted it so a key used with the wrong instance is rejected
 //! with [`Error::MismatchedRegistryKey`].
 
-use std::rc::Rc;
-
 use crate::error::{Error, Result};
 use crate::state::{Lua, LuaRef};
+use crate::sync::{NotSync, XRc, NOT_SYNC};
 use crate::traits::{FromLua, IntoLua};
 use crate::value::Value;
 
@@ -25,15 +24,20 @@ use crate::value::Value;
 /// Mirrors `mlua::RegistryKey`. Cloning produces another handle to the **same**
 /// stored value (the slot is shared via `Rc`). The value stays alive until the
 /// last clone is dropped or it is explicitly removed.
+///
+/// Under the `send` feature it is `Send` but never `Sync` — see
+/// [`crate::sync::NotSync`].
 #[derive(Clone)]
 pub struct RegistryKey {
-    pub(crate) reference: Rc<LuaRef>,
+    pub(crate) reference: XRc<LuaRef>,
+    pub(crate) _not_sync: NotSync,
 }
 
 impl RegistryKey {
     pub(crate) fn from_ref(reference: LuaRef) -> RegistryKey {
         RegistryKey {
-            reference: Rc::new(reference),
+            reference: XRc::new(reference),
+            _not_sync: NOT_SYNC,
         }
     }
 

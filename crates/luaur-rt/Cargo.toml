@@ -25,6 +25,19 @@ macros = ["dep:luaur-rt-derive"]
 # `Error` enum are byte-for-byte unchanged. Executor-agnostic: the caller drives
 # the returned futures on their own runtime.
 async = ["dep:futures-util"]
+# Makes `Lua` and all of its handles (`Table`/`Function`/`String`/
+# `AnyUserData`/`Thread`/`Buffer`/`Value`/`RegistryKey`) `Send`, mirroring
+# mlua's `send` feature: the whole VM can be **moved** to another thread (the
+# user guarantees serialized access). It does NOT make the VM thread-safe and
+# does NOT make it `Sync`. Off by default so the base build/API is byte-for-byte
+# unchanged (`XRc` = `Rc`, `MaybeSend`/`MaybeSync` are empty markers).
+#
+# NOTE: `send` is currently mutually exclusive with `async` (a `compile_error!`
+# fires if both are enabled). luaur-rt's async bridge relies on thread-local
+# waker/ownership maps and non-`Send` `Pin<Box<dyn Future>>` callbacks; making
+# the `send`+`async` combination sound is deferred. `send` alone (the core
+# handles — what `tests/send.rs` checks) is supported.
+send = []
 
 [dependencies]
 luaur-common = { path = "../luaur-common", version = "0.1.0" }

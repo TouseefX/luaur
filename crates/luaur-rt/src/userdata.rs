@@ -25,12 +25,12 @@
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::marker::PhantomData;
-use std::rc::Rc;
 
 use crate::callback::{create_callback_function, BoxedCallback};
 use crate::error::{Error, Result};
 use crate::ffi::*;
 use crate::state::{Lua, LuaRef};
+use crate::sync::{MaybeSend, MaybeSync, NotSync, XRc, NOT_SYNC};
 use crate::traits::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};
 use crate::value::Value;
 
@@ -53,21 +53,21 @@ pub trait UserDataMethods<T> {
     /// Register a method callable as `obj:name(...)`; receives `&T`.
     fn add_method<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti;
 
     /// Register a method callable as `obj:name(...)`; receives `&mut T`.
     fn add_method_mut<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &mut T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &mut T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti;
 
     /// Register a plain function in the userdata namespace (no `self`).
     fn add_function<F, A, R>(&mut self, name: impl Into<String>, function: F)
     where
-        F: Fn(&Lua, A) -> Result<R> + 'static,
+        F: Fn(&Lua, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti;
 
@@ -75,14 +75,14 @@ pub trait UserDataMethods<T> {
     /// receives `&T`.
     fn add_meta_method<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti;
 
     /// Register a meta-method receiving `&mut T`.
     fn add_meta_method_mut<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &mut T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &mut T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti;
 }
@@ -95,31 +95,31 @@ pub trait UserDataFields<T> {
     /// Register a constant field value (read-only).
     fn add_field<V>(&mut self, name: impl Into<String>, value: V)
     where
-        V: IntoLua + Clone + 'static;
+        V: IntoLua + Clone + MaybeSend + 'static;
 
     /// Register a field whose getter receives `&T`.
     fn add_field_method_get<M, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &T) -> Result<R> + 'static,
+        M: Fn(&Lua, &T) -> Result<R> + MaybeSend + 'static,
         R: IntoLua;
 
     /// Register a field whose setter receives `&mut T` and the assigned value.
     fn add_field_method_set<M, A>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &mut T, A) -> Result<()> + 'static,
+        M: Fn(&Lua, &mut T, A) -> Result<()> + MaybeSend + 'static,
         A: FromLua;
 
     /// Register a field whose getter receives the [`AnyUserData`] handle.
     fn add_field_function_get<F, R>(&mut self, name: impl Into<String>, function: F)
     where
-        F: Fn(&Lua, AnyUserData) -> Result<R> + 'static,
+        F: Fn(&Lua, AnyUserData) -> Result<R> + MaybeSend + 'static,
         R: IntoLua;
 
     /// Register a field whose setter receives the [`AnyUserData`] handle and
     /// the assigned value.
     fn add_field_function_set<F, A>(&mut self, name: impl Into<String>, function: F)
     where
-        F: Fn(&Lua, AnyUserData, A) -> Result<()> + 'static,
+        F: Fn(&Lua, AnyUserData, A) -> Result<()> + MaybeSend + 'static,
         A: FromLua;
 }
 
@@ -131,13 +131,15 @@ pub trait UserDataFields<T> {
 /// [`is`](AnyUserData::is)).
 #[derive(Clone)]
 pub struct AnyUserData {
-    pub(crate) reference: Rc<LuaRef>,
+    pub(crate) reference: XRc<LuaRef>,
+    pub(crate) _not_sync: NotSync,
 }
 
 impl AnyUserData {
     pub(crate) fn from_ref(reference: LuaRef) -> AnyUserData {
         AnyUserData {
-            reference: Rc::new(reference),
+            reference: XRc::new(reference),
+            _not_sync: NOT_SYNC,
         }
     }
 
@@ -456,7 +458,7 @@ impl<T> Collector<T> {
 impl<T: 'static> UserDataMethods<T> for Collector<T> {
     fn add_method<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti,
     {
@@ -478,7 +480,7 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
 
     fn add_method_mut<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &mut T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &mut T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti,
     {
@@ -503,7 +505,7 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
 
     fn add_function<F, A, R>(&mut self, name: impl Into<String>, function: F)
     where
-        F: Fn(&Lua, A) -> Result<R> + 'static,
+        F: Fn(&Lua, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti,
     {
@@ -521,7 +523,7 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
 
     fn add_meta_method<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti,
     {
@@ -543,7 +545,7 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
 
     fn add_meta_method_mut<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &mut T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &mut T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti,
     {
@@ -570,7 +572,7 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
 impl<T: 'static> UserDataFields<T> for Collector<T> {
     fn add_field<V>(&mut self, name: impl Into<String>, value: V)
     where
-        V: IntoLua + Clone + 'static,
+        V: IntoLua + Clone + MaybeSend + 'static,
     {
         let callback: BoxedCallback = Box::new(move |lua, _args| {
             let v = value.clone().into_lua(lua)?;
@@ -585,7 +587,7 @@ impl<T: 'static> UserDataFields<T> for Collector<T> {
 
     fn add_field_method_get<M, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &T) -> Result<R> + 'static,
+        M: Fn(&Lua, &T) -> Result<R> + MaybeSend + 'static,
         R: IntoLua,
     {
         let callback: BoxedCallback = Box::new(move |lua, mut args| {
@@ -605,7 +607,7 @@ impl<T: 'static> UserDataFields<T> for Collector<T> {
 
     fn add_field_method_set<M, A>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &mut T, A) -> Result<()> + 'static,
+        M: Fn(&Lua, &mut T, A) -> Result<()> + MaybeSend + 'static,
         A: FromLua,
     {
         let callback: BoxedCallback = Box::new(move |lua, mut args| {
@@ -629,7 +631,7 @@ impl<T: 'static> UserDataFields<T> for Collector<T> {
 
     fn add_field_function_get<F, R>(&mut self, name: impl Into<String>, function: F)
     where
-        F: Fn(&Lua, AnyUserData) -> Result<R> + 'static,
+        F: Fn(&Lua, AnyUserData) -> Result<R> + MaybeSend + 'static,
         R: IntoLua,
     {
         let callback: BoxedCallback = Box::new(move |lua, mut args| {
@@ -647,7 +649,7 @@ impl<T: 'static> UserDataFields<T> for Collector<T> {
 
     fn add_field_function_set<F, A>(&mut self, name: impl Into<String>, function: F)
     where
-        F: Fn(&Lua, AnyUserData, A) -> Result<()> + 'static,
+        F: Fn(&Lua, AnyUserData, A) -> Result<()> + MaybeSend + 'static,
         A: FromLua,
     {
         let callback: BoxedCallback = Box::new(move |lua, mut args| {
@@ -784,7 +786,7 @@ impl<T> ScopedCollector<T> {
 impl<T> UserDataMethods<T> for ScopedCollector<T> {
     fn add_method<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti,
     {
@@ -807,7 +809,7 @@ impl<T> UserDataMethods<T> for ScopedCollector<T> {
 
     fn add_method_mut<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &mut T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &mut T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti,
     {
@@ -833,7 +835,7 @@ impl<T> UserDataMethods<T> for ScopedCollector<T> {
 
     fn add_function<F, A, R>(&mut self, name: impl Into<String>, function: F)
     where
-        F: Fn(&Lua, A) -> Result<R> + 'static,
+        F: Fn(&Lua, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti,
     {
@@ -851,7 +853,7 @@ impl<T> UserDataMethods<T> for ScopedCollector<T> {
 
     fn add_meta_method<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti,
     {
@@ -874,7 +876,7 @@ impl<T> UserDataMethods<T> for ScopedCollector<T> {
 
     fn add_meta_method_mut<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &mut T, A) -> Result<R> + 'static,
+        M: Fn(&Lua, &mut T, A) -> Result<R> + MaybeSend + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti,
     {
@@ -902,7 +904,7 @@ impl<T> UserDataMethods<T> for ScopedCollector<T> {
 impl<T> UserDataFields<T> for ScopedCollector<T> {
     fn add_field<V>(&mut self, name: impl Into<String>, value: V)
     where
-        V: IntoLua + Clone + 'static,
+        V: IntoLua + Clone + MaybeSend + 'static,
     {
         let callback: BoxedCallback = Box::new(move |lua, _args| {
             let v = value.clone().into_lua(lua)?;
@@ -917,7 +919,7 @@ impl<T> UserDataFields<T> for ScopedCollector<T> {
 
     fn add_field_method_get<M, R>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &T) -> Result<R> + 'static,
+        M: Fn(&Lua, &T) -> Result<R> + MaybeSend + 'static,
         R: IntoLua,
     {
         let marker = self.marker;
@@ -938,7 +940,7 @@ impl<T> UserDataFields<T> for ScopedCollector<T> {
 
     fn add_field_method_set<M, A>(&mut self, name: impl Into<String>, method: M)
     where
-        M: Fn(&Lua, &mut T, A) -> Result<()> + 'static,
+        M: Fn(&Lua, &mut T, A) -> Result<()> + MaybeSend + 'static,
         A: FromLua,
     {
         let marker = self.marker;
@@ -963,7 +965,7 @@ impl<T> UserDataFields<T> for ScopedCollector<T> {
 
     fn add_field_function_get<F, R>(&mut self, name: impl Into<String>, function: F)
     where
-        F: Fn(&Lua, AnyUserData) -> Result<R> + 'static,
+        F: Fn(&Lua, AnyUserData) -> Result<R> + MaybeSend + 'static,
         R: IntoLua,
     {
         let callback: BoxedCallback = Box::new(move |lua, mut args| {
@@ -981,7 +983,7 @@ impl<T> UserDataFields<T> for ScopedCollector<T> {
 
     fn add_field_function_set<F, A>(&mut self, name: impl Into<String>, function: F)
     where
-        F: Fn(&Lua, AnyUserData, A) -> Result<()> + 'static,
+        F: Fn(&Lua, AnyUserData, A) -> Result<()> + MaybeSend + 'static,
         A: FromLua,
     {
         let callback: BoxedCallback = Box::new(move |lua, mut args| {
@@ -1127,7 +1129,10 @@ pub(crate) fn create_scoped_userdata<T: UserData>(
 
 /// Build a userdata value wrapping `data`, with a metatable assembled from the
 /// type's [`UserData::add_fields`] + [`UserData::add_methods`].
-pub(crate) fn create_userdata<T: UserData + 'static>(lua: &Lua, data: T) -> Result<AnyUserData> {
+pub(crate) fn create_userdata<T: UserData + MaybeSend + MaybeSync + 'static>(
+    lua: &Lua,
+    data: T,
+) -> Result<AnyUserData> {
     let state = lua.state();
 
     // 1. Collect fields, methods, and meta-methods.

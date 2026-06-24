@@ -19,8 +19,6 @@
 // `register_userdata_type` + `AnyUserData::wrap` (no luaur-rt equivalent), so
 // the *derive* behaviour is proven there over luaur-rt's `create_userdata`.
 
-use std::cell::Cell;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use luaur_rt::{
@@ -330,24 +328,28 @@ fn test_gc_userdata_access_after_collect() -> Result<()> {
 fn test_userdata_drop_runs_destructor() -> Result<()> {
     // The wrapped value's `Drop` must run when the userdata is collected.
     // (Uses the Rust `gc_collect` API since luaur lacks `collectgarbage`.)
-    struct Tracked(Rc<Cell<bool>>);
+    // `Arc<AtomicBool>` (rather than `Rc<Cell<bool>>`) so this also compiles
+    // under the `send` feature, where the userdata payload `T` must be `Send`.
+    // Behaviorally identical in the single-threaded default build.
+    use std::sync::atomic::{AtomicBool, Ordering};
+    struct Tracked(Arc<AtomicBool>);
     impl UserData for Tracked {}
     impl Drop for Tracked {
         fn drop(&mut self) {
-            self.0.set(true);
+            self.0.store(true, Ordering::SeqCst);
         }
     }
 
-    let dropped = Rc::new(Cell::new(false));
+    let dropped = Arc::new(AtomicBool::new(false));
     let lua = Lua::new();
     lua.globals().set("ud", lua.create_userdata(Tracked(dropped.clone()))?)?;
-    assert!(!dropped.get());
+    assert!(!dropped.load(Ordering::SeqCst));
 
     // Make the userdata unreachable, then collect.
     lua.load("ud = nil").exec()?;
     lua.gc_collect()?;
     lua.gc_collect()?;
-    assert!(dropped.get(), "userdata destructor should have run");
+    assert!(dropped.load(Ordering::SeqCst), "userdata destructor should have run");
 
     Ok(())
 }

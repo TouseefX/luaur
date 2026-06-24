@@ -11,11 +11,11 @@
 //! writes go straight to the buffer with no copy.
 
 use std::io;
-use std::rc::Rc;
 
 use crate::error::Result;
 use crate::ffi::*;
 use crate::state::{Lua, LuaRef};
+use crate::sync::{NotSync, XRc, NOT_SYNC};
 
 /// A Luau buffer type.
 ///
@@ -23,16 +23,21 @@ use crate::state::{Lua, LuaRef};
 ///
 /// Mirrors `mlua::Buffer`. Holds a registry reference keeping the buffer alive.
 ///
+/// Under the `send` feature it is `Send` but never `Sync` — see
+/// [`crate::sync::NotSync`].
+///
 /// [documentation]: https://luau.org/library#buffer-library
 #[derive(Clone)]
 pub struct Buffer {
-    pub(crate) reference: Rc<LuaRef>,
+    pub(crate) reference: XRc<LuaRef>,
+    pub(crate) _not_sync: NotSync,
 }
 
 impl Buffer {
     pub(crate) fn from_ref(reference: LuaRef) -> Buffer {
         Buffer {
-            reference: Rc::new(reference),
+            reference: XRc::new(reference),
+            _not_sync: NOT_SYNC,
         }
     }
 

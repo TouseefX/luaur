@@ -1,24 +1,28 @@
 //! The [`LuaString`] handle. Mirrors `mlua::String`.
 
-use std::rc::Rc;
-
 use crate::error::{Error, Result};
 use crate::ffi::*;
 use crate::state::{Lua, LuaRef};
+use crate::sync::{NotSync, XRc, NOT_SYNC};
 
 /// A garbage-collected Lua string.
 ///
 /// Mirrors `mlua::String`. Holds a registry reference to the underlying Lua
 /// string so the bytes stay alive for the handle's lifetime.
+///
+/// Under the `send` feature it is `Send` but never `Sync` — see
+/// [`crate::sync::NotSync`].
 #[derive(Clone)]
 pub struct LuaString {
-    pub(crate) reference: Rc<LuaRef>,
+    pub(crate) reference: XRc<LuaRef>,
+    pub(crate) _not_sync: NotSync,
 }
 
 impl LuaString {
     pub(crate) fn from_ref(reference: LuaRef) -> LuaString {
         LuaString {
-            reference: Rc::new(reference),
+            reference: XRc::new(reference),
+            _not_sync: NOT_SYNC,
         }
     }
 

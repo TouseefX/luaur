@@ -88,7 +88,33 @@ raises a plain string instead of a `__tostring` userdata), and the strong-count
 GC assertion in `test_async_thread` is omitted (the captured future lives in a
 collectible Lua userdata).
 
-Still deferred (later phases): `Send`/`Sync`, the `Compiler`
+Phase 4d added the `send` feature (behind the `send` cargo feature): under it
+`Lua` and all of its handles (`Table`/`Function`/`String`/`AnyUserData`/`Thread`/
+`Buffer`/`Value`/`RegistryKey`/`MultiValue`/`Error`) become `Send`, so the whole
+VM can be **moved** to another thread (the user guarantees serialized access).
+Implementation (mirroring mlua, `src/sync.rs`): `XRc<T>` = `Arc<T>` under the
+feature (`Rc<T>` otherwise) for the shared `LuaInner` / `LuaRef`; a `MaybeSend`
+(and `MaybeSync`) marker trait applied to the `create_function` closure, every
+userdata method/field/function closure, and the userdata payload `T`, so the
+stored callback boxes and their captured environment are `Send`; and documented
+`unsafe impl Send` over the raw `*mut lua_State` (in `LuaInner` and `Thread`),
+with `LuaInner`/`LuaRef` also `unsafe impl Sync` purely so `Arc<…>` is `Send`.
+DEVIATION from mlua: luaur-rt is `Send` but deliberately **`!Sync`** (mlua's
+`Lua` is `Send + Sync` via its `Arc<ReentrantMutex<RawLua>>` interior); each
+public handle carries a zero-sized `NotSync` marker to re-impose `!Sync`. The
+default build is byte-for-byte unchanged (`XRc` = `Rc`, the markers are empty /
+unit types). DEVIATION: `send` and `async` are mutually exclusive for now (a
+`compile_error!` fires if both are enabled) — the async bridge's thread-local
+wakers + non-`Send` futures are not yet made `Send`; deferred. Coverage:
+`tests/mlua_send.rs` (gated `#![cfg(feature = "send")]`). mlua's single
+`tests/send.rs` test (`test_userdata_multithread_access_sync`) cannot be ported
+verbatim: it shares one `&Lua` across a `std::thread::scope` and calls
+`ObjectLike::call_method` on a second thread, requiring `Lua: Sync` + the
+`ObjectLike` trait, neither of which luaur-rt provides. It is reproduced in
+spirit as a single-threaded nested-method test plus compile-time `Send`
+assertions, a `!Sync` probe, and a real *move-the-VM-across-threads* test.
+
+Still deferred (later phases): the `Compiler`
 (chunk compile options / `set_vector_ctor`), sandbox/interrupts/fflags/heap-dump,
 the proc-macro `chunk!`, and the `#[userdata_impl]` attribute macro / userdata
 registry / `create_proxy` (including its `add_async_method*` surface). From
@@ -116,6 +142,7 @@ above). From `serde`: serializable userdata (`create_ser_userdata*` / `wrap_ser`
 | `tests/mlua_serde.rs`      | `tests/serde.rs` (non-userdata subset, gated `feature = "serde"`) |
 | `tests/mlua_userdata_macro.rs` | `tests/userdata_macro.rs` (derive field + `FromLua` subset, gated `feature = "macros"`) |
 | `tests/mlua_async.rs`      | `tests/async.rs` (portable subset, gated `feature = "async"`) |
+| `tests/mlua_send.rs`       | `tests/send.rs` (spirit-port + `Send`/`!Sync` assertions, gated `feature = "send"`) |
 
 ## mlua MIT License
 

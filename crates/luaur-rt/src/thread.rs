@@ -17,13 +17,12 @@
 //! `lua_costatus`, matching mlua's `Resumable`/`Running`/`Normal`/`Finished`/
 //! `Error` mapping.
 
-use std::rc::Rc;
-
 use crate::error::{Error, Result};
 use crate::ffi::*;
 use crate::function::Function;
 use crate::multi::MultiValue;
 use crate::state::{Lua, LuaRef};
+use crate::sync::{NotSync, XRc, NOT_SYNC};
 use crate::traits::{FromLuaMulti, IntoLua, IntoLuaMulti};
 
 /// Status of a Lua thread (coroutine). Mirrors `mlua::ThreadStatus`.
@@ -53,12 +52,23 @@ pub(crate) enum AsyncResume {
 }
 
 /// A handle to a Lua thread (coroutine). Mirrors `mlua::Thread`.
+///
+/// Under the `send` feature it is `Send` but never `Sync` — see
+/// [`crate::sync::NotSync`].
 #[derive(Clone)]
 pub struct Thread {
-    pub(crate) reference: Rc<LuaRef>,
+    pub(crate) reference: XRc<LuaRef>,
     /// The raw coroutine state pointer (cached from the referenced value).
     pub(crate) thread_state: *mut lua_State,
+    pub(crate) _not_sync: NotSync,
 }
+
+// `Thread` caches a raw `*mut lua_State` (the coroutine), which is `!Send` by
+// default. Under the move-only `send` contract it is sound to move a `Thread`
+// to another thread (the cached pointer stays valid; the VM is single-threaded
+// in use). `!Sync` is preserved by the `NotSync` marker.
+#[cfg(feature = "send")]
+unsafe impl Send for Thread {}
 
 impl Thread {
     /// Build a [`Thread`] from a registry ref to a thread value. Caches the
@@ -72,8 +82,9 @@ impl Thread {
             ts
         };
         Thread {
-            reference: Rc::new(reference),
+            reference: XRc::new(reference),
             thread_state,
+            _not_sync: NOT_SYNC,
         }
     }
 

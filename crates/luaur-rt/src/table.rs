@@ -1,25 +1,29 @@
 //! The [`Table`] handle. Mirrors `mlua::Table`.
 
-use std::rc::Rc;
-
 use crate::error::Result;
 use crate::ffi::*;
 use crate::state::{Lua, LuaRef};
+use crate::sync::{NotSync, XRc, NOT_SYNC};
 use crate::traits::{FromLua, IntoLua};
 use crate::value::Value;
 
 /// A handle to a Lua table.
 ///
 /// Mirrors `mlua::Table`. Holds a registry reference keeping the table alive.
+///
+/// Under the `send` feature this handle is `Send` (the VM can be moved across
+/// threads) but never `Sync` — see [`crate::sync::NotSync`].
 #[derive(Clone)]
 pub struct Table {
-    pub(crate) reference: Rc<LuaRef>,
+    pub(crate) reference: XRc<LuaRef>,
+    pub(crate) _not_sync: NotSync,
 }
 
 impl Table {
     pub(crate) fn from_ref(reference: LuaRef) -> Table {
         Table {
-            reference: Rc::new(reference),
+            reference: XRc::new(reference),
+            _not_sync: NOT_SYNC,
         }
     }
 

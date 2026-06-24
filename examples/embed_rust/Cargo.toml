@@ -1,0 +1,11 @@
+# Example crate: the high-level, mlua-style API (luaur-rt, re-exported by luaur).
+#     cargo run -p luaur-example-embed-rust
+[package]
+name = "luaur-example-embed-rust"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# In your own project this would be: luaur = "0.1"
+luaur = { path = "../../crates/luaur" }

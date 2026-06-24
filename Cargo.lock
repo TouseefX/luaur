@@ -201,6 +201,7 @@ dependencies = [
  "luaur-compiler",
  "luaur-config",
  "luaur-require",
+ "luaur-rt",
  "luaur-vm",
 ]
 
@@ -403,6 +404,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "luaur-example-embed-rust"
+version = "0.0.0"
+dependencies = [
+ "luaur",
+]
+
+[[package]]
 name = "luaur-example-embed-vm"
 version = "0.0.0"
 dependencies = [
@@ -473,6 +481,17 @@ dependencies = [
  "luaur-config",
  "luaur-vm",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "luaur-rt"
+version = "0.1.0"
+dependencies = [
+ "luaur-ast",
+ "luaur-bytecode",
+ "luaur-common",
+ "luaur-compiler",
+ "luaur-vm",
 ]
 
 [[package]]

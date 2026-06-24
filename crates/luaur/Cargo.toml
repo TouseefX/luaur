@@ -18,3 +18,4 @@ luaur-vm = { path = "../luaur-vm", version = "0.1.0" }
 luaur-analysis = { path = "../luaur-analysis", version = "0.1.0" }
 luaur-config = { path = "../luaur-config", version = "0.1.0" }
 luaur-require = { path = "../luaur-require", version = "0.1.0" }
+luaur-rt = { path = "../luaur-rt", version = "0.1.0" }

@@ -1,0 +1,19 @@
+[package]
+name = "luaur-rt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Safe, ergonomic, mlua-style API for luaur (pure-Rust Luau)."
+keywords = ["luau", "lua", "mlua", "scripting", "embedding"]
+categories = ["api-bindings", "development-tools::ffi", "game-development"]
+
+[dependencies]
+luaur-common = { path = "../luaur-common", version = "0.1.0" }
+luaur-compiler = { path = "../luaur-compiler", version = "0.1.0" }
+luaur-vm = { path = "../luaur-vm", version = "0.1.0" }
+# Needed by `Chunk` to drive the compiler with default parse/encode options,
+# mirroring the umbrella `luaur` crate's `compile` helper.
+luaur-ast = { path = "../luaur-ast", version = "0.1.0" }
+luaur-bytecode = { path = "../luaur-bytecode", version = "0.1.0" }

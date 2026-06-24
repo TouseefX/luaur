@@ -20,6 +20,7 @@ members = [
     "crates/luaur-reduce-cli",
     "crates/luaur-repl-cli",
     "crates/luaur-require",
+    "crates/luaur-rt",
     "crates/luaur-unit-test",
     "crates/luaur-vm",
     "crates/luaur-web",

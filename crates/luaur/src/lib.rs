@@ -25,16 +25,27 @@ pub use luaur_common as common;
 pub use luaur_compiler as compiler;
 pub use luaur_config as config;
 pub use luaur_require as require;
+pub use luaur_rt as rt;
 pub use luaur_vm as vm;
 
 mod check;
 pub use check::check;
+
+// The headline high-level, mlua-style API. Re-exported flat at the crate root
+// so `luaur::Lua`, `luaur::Table`, etc. are available directly.
+pub use luaur_rt::{
+    AnyUserData, Chunk, Error, FromLua, FromLuaMulti, Function, IntoLua, IntoLuaMulti, Lua,
+    LuaString, MultiValue, Result, Table, UserData, UserDataMethods, Value, Variadic,
+};
 
 /// Common entry points, re-exported for convenience.
 pub mod prelude {
     pub use crate::{check, compile, eval};
     pub use luaur_ast::records::parse_options::ParseOptions;
     pub use luaur_compiler::records::compile_options::CompileOptions;
+
+    // The mlua-style high-level API prelude (Lua, Value, Table, traits, ...).
+    pub use luaur_rt::prelude::*;
 }
 
 use luaur_ast::records::parse_options::ParseOptions;
@@ -57,7 +68,7 @@ impl BytecodeEncoder for NoopEncoder {
 /// compiler emits an "error blob" (a leading `\0` marker byte followed by the
 /// human-readable message); we detect that marker and surface the message as the
 /// `Err` variant instead.
-pub fn compile(source: &str) -> Result<Vec<u8>, String> {
+pub fn compile(source: &str) -> core::result::Result<Vec<u8>, String> {
     let options = CompileOptions::default();
     let parse_options = ParseOptions::default();
     let mut encoder = NoopEncoder;
@@ -87,7 +98,7 @@ pub fn compile(source: &str) -> Result<Vec<u8>, String> {
 /// Returns `Ok(())` if the script ran to completion, or `Err(message)` carrying
 /// the Lua error string (the same text the CLI would print) on a compile, load
 /// or runtime error.
-pub fn eval(source: &str) -> Result<(), String> {
+pub fn eval(source: &str) -> core::result::Result<(), String> {
     use luaur_vm::functions::lua_l_newstate::lua_l_newstate;
     use luaur_vm::functions::lua_l_openlibs::lua_l_openlibs;
     use luaur_vm::functions::lua_newthread::lua_newthread;

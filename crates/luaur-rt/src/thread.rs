@@ -41,6 +41,17 @@ pub enum ThreadStatus {
     Error,
 }
 
+/// The raw outcome of one async resume. See [`Thread::resume_for_async`].
+#[cfg(feature = "async")]
+pub(crate) enum AsyncResume {
+    /// The coroutine yielded the internal "future pending" marker.
+    Pending,
+    /// The coroutine yielded values via `coroutine.yield` (a Stream item).
+    Yielded(MultiValue),
+    /// The coroutine finished, returning these values.
+    Returned(MultiValue),
+}
+
 /// A handle to a Lua thread (coroutine). Mirrors `mlua::Thread`.
 #[derive(Clone)]
 pub struct Thread {
@@ -183,6 +194,105 @@ impl Thread {
         }
     }
 
+    /// Low-level resume used by the async driver. Pushes `args` to the
+    /// coroutine, resumes it once, and returns the raw outcome:
+    ///
+    /// * `Err(e)` — the coroutine raised an error.
+    /// * `Ok(AsyncResume::Pending)` — the coroutine yielded the internal
+    ///   "future pending" marker (a single light-userdata == `poll_pending()`);
+    ///   the stack is left cleared.
+    /// * `Ok(AsyncResume::Yielded(vals))` — the coroutine yielded `vals`
+    ///   (a `coroutine.yield`, i.e. a Stream item).
+    /// * `Ok(AsyncResume::Returned(vals))` — the coroutine finished, returning
+    ///   `vals`.
+    ///
+    /// The coroutine stack is fully consumed/cleared on every path.
+    #[cfg(feature = "async")]
+    pub(crate) fn resume_for_async(&self, args: MultiValue) -> Result<AsyncResume> {
+        let lua = self.lua();
+        let parent = lua.state();
+        let co = self.thread_state;
+        unsafe {
+            let nargs = args.len() as c_int;
+            if lua_checkstack(co, nargs.saturating_add(2)) == 0 {
+                return Err(Error::RuntimeError(
+                    "stack overflow: too many arguments to coroutine resume".to_string(),
+                ));
+            }
+            for v in args.iter() {
+                lua.push_value(v)?;
+            }
+            if nargs > 0 {
+                lua_xmove(parent, co, nargs);
+            }
+            let status = lua_resume(co, parent, nargs);
+
+            if status != status::OK && status != status::YIELD {
+                let nres = lua_gettop(co);
+                if nres > 0 {
+                    lua_xmove(co, parent, nres);
+                }
+                return Err(lua.pop_error(status));
+            }
+
+            let yielded = status == status::YIELD;
+            let nres = lua_gettop(co);
+
+            // Detect the single-light-userdata pending marker (top of the
+            // coroutine stack) on a yield.
+            if yielded
+                && nres == 1
+                && crate::ffi::lua_tolightuserdata(co, -1) == crate::async_support::poll_pending()
+            {
+                lua_settop(co, 0);
+                return Ok(AsyncResume::Pending);
+            }
+
+            // Otherwise move the produced values to the parent and convert.
+            if lua_checkstack(parent, nres.saturating_add(1)) == 0 {
+                return Err(Error::RuntimeError("stack overflow".to_string()));
+            }
+            let base = lua_gettop(parent);
+            if nres > 0 {
+                lua_xmove(co, parent, nres);
+            }
+            let mut results = MultiValue::with_capacity(nres.max(0) as usize);
+            for i in 0..nres {
+                results.push_back(lua.value_from_stack(base + 1 + i)?);
+            }
+            lua_settop(parent, base);
+            lua_settop(co, 0);
+
+            if yielded {
+                Ok(AsyncResume::Yielded(results))
+            } else {
+                Ok(AsyncResume::Returned(results))
+            }
+        }
+    }
+
+    /// Resume a yielded async coroutine with the "terminate" signal so it drops
+    /// its in-flight future and parks. Best-effort; ignores errors. Used when an
+    /// [`AsyncThread`](crate::async_support::AsyncThread) is dropped mid-flight.
+    #[cfg(feature = "async")]
+    pub(crate) fn terminate_async(&self) {
+        if !self.is_resumable() {
+            return;
+        }
+        let lua = self.lua();
+        let parent = lua.state();
+        let co = self.thread_state;
+        unsafe {
+            if lua_checkstack(co, 2) == 0 {
+                return;
+            }
+            crate::ffi::lua_pushlightuserdatatagged(parent, crate::async_support::poll_terminate(), 0);
+            lua_xmove(parent, co, 1);
+            let _ = lua_resume(co, parent, 1);
+            lua_settop(co, 0);
+        }
+    }
+
     /// The thread's status. Mirrors `mlua::Thread::status`.
     pub fn status(&self) -> ThreadStatus {
         let lua = self.lua();
@@ -291,6 +401,35 @@ impl std::fmt::Debug for Thread {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Async: drive a coroutine as a Rust `Future` / `Stream` (the `async` feature)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "async")]
+impl Thread {
+    /// Convert this (resumable) thread into an
+    /// [`AsyncThread`](crate::AsyncThread) that implements
+    /// [`Future`](std::future::Future) and
+    /// [`Stream`](futures_util::stream::Stream).
+    ///
+    /// Mirrors `mlua::Thread::into_async`. `args` are passed to the coroutine on
+    /// its first resume. As a `Future` the thread is driven to completion and
+    /// resolves to its final return value(s); as a `Stream` each
+    /// `coroutine.yield` produces an item.
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub fn into_async<R: FromLuaMulti>(
+        self,
+        args: impl IntoLuaMulti,
+    ) -> Result<crate::async_support::AsyncThread<R>> {
+        if !self.is_resumable() {
+            return Err(Error::CoroutineUnresumable);
+        }
+        let lua = self.lua();
+        let args = args.into_lua_multi(&lua)?;
+        Ok(crate::async_support::AsyncThread::new(self, args))
+    }
+}
+
 impl PartialEq for Thread {
     fn eq(&self, other: &Self) -> bool {
         self.to_pointer() == other.to_pointer()
@@ -348,9 +487,26 @@ impl Lua {
     /// The currently-running thread. Mirrors `mlua::Lua::current_thread`.
     ///
     /// Inside a Rust callback this is the coroutine (or main thread) that
-    /// invoked it.
+    /// invoked it. Under the `async` feature, a coroutine created implicitly by
+    /// `call_async` is transparent: this returns its *owner* thread instead, so
+    /// `current_thread()` is stable across the implicit-coroutine boundary
+    /// (matching mlua).
     pub fn current_thread(&self) -> Thread {
         let state = self.state();
+        // If we are running on an implicit `call_async` coroutine, report the
+        // owner thread that issued the call.
+        #[cfg(feature = "async")]
+        if let Some(owner) = crate::async_support::implicit_thread_owner(state) {
+            unsafe {
+                lua_pushthread(owner);
+                // The owner-thread value is on the owner's stack; move it to this
+                // state so we can take a ref to it from here.
+                if owner != state {
+                    lua_xmove(owner, state, 1);
+                }
+                return Thread::from_ref(self.pop_ref());
+            }
+        }
         unsafe {
             lua_pushthread(state);
             Thread::from_ref(self.pop_ref())

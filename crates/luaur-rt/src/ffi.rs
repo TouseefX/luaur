@@ -96,6 +96,22 @@ pub(crate) use luaur_vm::macros::lua_globalsindex::LUA_GLOBALSINDEX;
 pub(crate) use luaur_vm::macros::lua_pop::lua_pop;
 pub(crate) use luaur_vm::macros::lua_upvalueindex::lua_upvalueindex;
 
+// ---- async bridge (Future <-> coroutine) ---------------------------------
+// Only the async feature touches these; gating them keeps the default build
+// free of unused-import churn (and byte-identical).
+#[cfg(feature = "async")]
+pub(crate) use luaur_vm::functions::lua_pushinteger::lua_pushinteger;
+#[cfg(feature = "async")]
+pub(crate) use luaur_vm::functions::lua_rawgeti::lua_rawgeti;
+#[cfg(feature = "async")]
+pub(crate) use luaur_vm::functions::lua_pushlightuserdatatagged::lua_pushlightuserdatatagged;
+#[cfg(feature = "async")]
+pub(crate) use luaur_vm::functions::lua_replace::lua_replace;
+#[cfg(feature = "async")]
+pub(crate) use luaur_vm::functions::lua_tointegerx::lua_tointegerx;
+#[cfg(feature = "async")]
+pub(crate) use luaur_vm::functions::lua_tolightuserdata::lua_tolightuserdata;
+
 /// Lua type tags (subset we care about). The VM returns these as `c_int` from
 /// [`lua_type`]; we keep our own constants to avoid leaking the VM enum.
 pub(crate) mod ttype {

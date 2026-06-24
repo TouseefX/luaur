@@ -17,6 +17,14 @@ serde = ["dep:serde"]
 # mirroring mlua's `macros` feature. Off by default so the base build/API is
 # byte-for-byte unchanged.
 macros = ["dep:luaur-rt-derive"]
+# Rust `async`/`await` support, mirroring mlua's `async` feature: Rust async
+# functions callable from Lua (`Lua::create_async_function` /
+# `Function::wrap_async`) and async chunk/function execution
+# (`Function::call_async`, `Chunk::eval_async`/`exec_async`,
+# `Thread::into_async` / `AsyncThread`). Off by default so the base build/API +
+# `Error` enum are byte-for-byte unchanged. Executor-agnostic: the caller drives
+# the returned futures on their own runtime.
+async = ["dep:futures-util"]
 
 [dependencies]
 luaur-common = { path = "../luaur-common", version = "0.1.0" }
@@ -35,6 +43,11 @@ luaur-bytecode = { path = "../luaur-bytecode", version = "0.1.0" }
 # `serde` is all that is needed (no erased-serde / serde-value).
 serde = { version = "1.0", optional = true, default-features = false, features = ["std"] }
 
+# Optional: only pulled in by the `async` feature. Provides the `Stream` trait
+# (implemented by `AsyncThread`) and small future combinators used by the
+# bridge. We keep it lightweight (default features, no executor).
+futures-util = { version = "0.3", optional = true }
+
 [dev-dependencies]
 # The ported mlua serde tests assert round-trips against `serde_json` and use
 # `bstr::BString` / `#[derive(Serialize, Deserialize)]`, exactly like mlua's
@@ -45,3 +58,8 @@ serde = { version = "1.0", features = ["std", "derive"] }
 # port exercises (matching mlua's dev-dependency).
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 bstr = { version = "1", features = ["serde"] }
+# The ported mlua async tests (`tests/mlua_async.rs`, gated `feature = "async"`)
+# use tokio as the executor and `futures-util` stream combinators, matching
+# mlua's async dev-dependencies.
+tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
+futures-util = { version = "0.3" }

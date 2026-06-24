@@ -150,6 +150,51 @@ impl Chunk {
         let f = self.into_function()?;
         f.call::<R>(())
     }
+
+    /// Asynchronously load the chunk and call it with `args` (the `async`
+    /// feature). Mirrors `mlua::Chunk::call_async`.
+    #[cfg(feature = "async")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub async fn call_async<R>(self, args: impl crate::traits::IntoLuaMulti) -> Result<R>
+    where
+        R: FromLuaMulti,
+    {
+        self.into_function()?.call_async(args).await
+    }
+
+    /// Asynchronously run the chunk for its side effects (the `async` feature).
+    /// Mirrors `mlua::Chunk::exec_async`.
+    #[cfg(feature = "async")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub async fn exec_async(self) -> Result<()> {
+        self.call_async(()).await
+    }
+
+    /// Asynchronously evaluate the chunk as an expression (or block) and convert
+    /// the result to `R` (the `async` feature). Mirrors `mlua::Chunk::eval_async`.
+    ///
+    /// Like [`Chunk::eval`], the source is first tried as an expression (by
+    /// prepending `return `); if that compiles it is driven, otherwise the chunk
+    /// runs as a statement block.
+    #[cfg(feature = "async")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub async fn eval_async<R>(self) -> Result<R>
+    where
+        R: FromLuaMulti,
+    {
+        // Try the expression form first (mirrors `eval`).
+        let expr = Chunk {
+            lua: self.lua.clone(),
+            source: format!("return {}", self.source),
+            name: self.name.clone(),
+            environment: self.environment.clone(),
+        };
+        if let Ok(f) = expr.into_function() {
+            return f.call_async::<R>(()).await;
+        }
+        let f = self.into_function()?;
+        f.call_async::<R>(()).await
+    }
 }
 
 /// How a chunk's bytes are interpreted. Mirrors `mlua::ChunkMode`. luaur-rt

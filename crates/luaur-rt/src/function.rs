@@ -81,6 +81,7 @@ impl Function {
     ///
     /// Mirrors `mlua::Function::bind`. Implemented as a Rust closure that
     /// captures the bound prefix and the target function.
+    #[cfg(not(feature = "async"))]
     pub fn bind(&self, args: impl IntoLuaMulti) -> Result<Function> {
         let lua = self.lua();
         let bound: MultiValue = args.into_lua_multi(&lua)?;
@@ -95,6 +96,128 @@ impl Function {
                 all.push_back(v);
             }
             target.call::<MultiValue>(all)
+        })
+    }
+
+    /// Return a new function that, when called, prepends `args` to its own
+    /// arguments and forwards to `self`.
+    ///
+    /// Mirrors `mlua::Function::bind`. Under the `async` feature this is built as
+    /// a **pure-Lua closure** (`function(...) return func(prepend(...)) end`)
+    /// rather than a Rust trampoline, so the forwarded call is a Lua-level call
+    /// and remains **yield-transparent**: a bound async function can still yield
+    /// while its future is pending. (The `prepend` helper only rearranges
+    /// arguments and returns, so it never yields across a C boundary.) Behavior
+    /// is identical to the non-async implementation for ordinary functions.
+    #[cfg(feature = "async")]
+    pub fn bind(&self, args: impl IntoLuaMulti) -> Result<Function> {
+        let lua = self.lua();
+        let bound: MultiValue = args.into_lua_multi(&lua)?;
+        let bound_vec: Vec<crate::value::Value> = bound.into_vec();
+
+        // `prepend(...)` returns the bound prefix followed by the call args.
+        let prepend = lua.create_function(move |_, extra: MultiValue| {
+            let mut all = MultiValue::with_capacity(bound_vec.len() + extra.len());
+            for v in &bound_vec {
+                all.push_back(v.clone());
+            }
+            for v in extra {
+                all.push_back(v);
+            }
+            Ok(all)
+        })?;
+
+        // Build the wrapper closure in Lua so the inner `func(...)` is a Lua
+        // call (yield-transparent), capturing `func` and `prepend` as upvalues.
+        let builder: Function = lua
+            .load(
+                r#"
+                local func, prepend = ...
+                return function(...)
+                    return func(prepend(...))
+                end
+                "#,
+            )
+            .set_name("__luaur_bind")
+            .into_function()?;
+        builder.call::<Function>((self.clone(), prepend))
+    }
+
+    /// Call the function asynchronously: run it on a fresh coroutine and drive
+    /// that coroutine to completion as a Rust [`Future`](std::future::Future).
+    ///
+    /// Mirrors `mlua::Function::call_async`. Works for both async functions
+    /// (created via [`Lua::create_async_function`](crate::Lua::create_async_function))
+    /// — which yield while their inner future is pending — and ordinary
+    /// functions (which simply run to completion). Calling an async function
+    /// with the *synchronous* [`Function::call`] instead raises a runtime error,
+    /// matching mlua.
+    #[cfg(feature = "async")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub fn call_async<R>(
+        &self,
+        args: impl IntoLuaMulti,
+    ) -> impl std::future::Future<Output = Result<R>>
+    where
+        R: FromLuaMulti,
+    {
+        let lua = self.lua();
+        // Build the driver eagerly so argument-conversion / thread-creation
+        // errors surface when awaited (wrapped in a ready future).
+        let setup: Result<crate::async_support::AsyncThread<R>> = (|| {
+            let thread = lua.create_thread(self.clone())?;
+            // The coroutine is *implicit* (created by `call_async`): register it
+            // so `Lua::current_thread` running on it resolves to the owner (the
+            // thread that issued this call). Mirrors mlua's thread-ownership map.
+            crate::async_support::register_implicit_thread(thread.state(), lua.state());
+            let mut th = thread.into_async(args)?;
+            th.set_implicit(true);
+            Ok(th)
+        })();
+        async move { setup?.await }
+    }
+
+    /// Wrap a Rust async function/closure as a value convertible into a Lua
+    /// function.
+    ///
+    /// Mirrors `mlua::Function::wrap_async`. Unlike
+    /// [`Lua::create_async_function`](crate::Lua::create_async_function) the
+    /// closure does not receive the [`Lua`] and its arity is free (0, 1, … args
+    /// mapped from the Lua call arguments). The returned value is
+    /// [`IntoLua`](crate::IntoLua) so it can be stored directly (e.g.
+    /// `globals().set("f", Function::wrap_async(..))`). A returned `Err` is
+    /// raised as a Lua error.
+    #[cfg(feature = "async")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub fn wrap_async<F, A, R, E>(func: F) -> impl crate::traits::IntoLua
+    where
+        F: crate::async_support::LuaNativeAsyncFn<A, Output = std::result::Result<R, E>> + 'static,
+        A: FromLuaMulti,
+        R: IntoLuaMulti + 'static,
+        E: crate::error::ExternalError + 'static,
+    {
+        crate::async_support::WrappedAsync::new(move |_lua: Lua, a: A| {
+            let fut = func.call(a);
+            async move { fut.await.map_err(crate::error::ExternalError::into_lua_err) }
+        })
+    }
+
+    /// Like [`Function::wrap_async`] but the closure's output is passed through
+    /// to Lua as-is (a returned `Result` becomes an `(ok, err)`-style multi
+    /// value rather than being raised).
+    ///
+    /// Mirrors `mlua::Function::wrap_raw_async`.
+    #[cfg(feature = "async")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub fn wrap_raw_async<F, A>(func: F) -> impl crate::traits::IntoLua
+    where
+        F: crate::async_support::LuaNativeAsyncFn<A> + 'static,
+        F::Output: IntoLuaMulti + 'static,
+        A: FromLuaMulti,
+    {
+        crate::async_support::WrappedAsync::new(move |_lua: Lua, a: A| {
+            let fut = func.call(a);
+            async move { Ok(fut.await) }
         })
     }
 

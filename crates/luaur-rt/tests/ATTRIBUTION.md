@@ -63,12 +63,38 @@ comes from its `#[userdata_impl]` attribute macro + an `inventory`-based
 `UserDataRegistry` + `Lua::create_proxy`, none of which luaur-rt has, so only
 the field-deriving + `FromLua` parts are ported (with an inline note).
 
-Still deferred (later phases): async, `Send`/`Sync`, the `Compiler`
+Phase 4c added the `async` feature (behind the `async` cargo feature): the
+Rust-`Future` ⟷ Lua-coroutine bridge. `Lua::create_async_function` exposes a
+Rust async fn as a Lua closure that runs on a coroutine and **yields** while its
+boxed future is pending; a Rust driver (`AsyncThread`, implementing `Future` +
+`futures_util::Stream`) resumes the coroutine, polls the future with the
+executor's `Waker`, and resumes with the result when ready. Surface:
+`Lua::create_async_function` / `Lua::yield_with`, `Function::{call_async,
+wrap_async, wrap_raw_async}`, `Chunk::{call_async, exec_async, eval_async}`,
+`Thread::into_async` + `AsyncThread`. Executor-agnostic (the caller drives the
+futures; the tests use tokio). The default build, public API, and `Error` enum
+are byte-for-byte unchanged (everything is `#[cfg(feature = "async")]`).
+Coverage: `tests/mlua_async.rs` (ported from mlua's `tests/async.rs`, gated
+`#![cfg(feature = "async")]`). Deferred tests are noted inline at the top of that
+file: `test_async_userdata` (needs `UserDataMethods::add_async_method*` /
+`add_async_function` / `add_async_meta_method`), `test_async_table_object_like`
+and `test_async_thread_pool` (need the `ObjectLike` trait `call_async_method` and
+`LuaOptions::thread_pool_size`), and the userdata-ref half of
+`test_async_terminate` (needs `create_any_userdata` + `UserDataRef`). The
+Luau-gated-out mlua tests (`test_async_lua54_to_be_closed`, `test_async_hook`)
+are skipped as not applicable. Documented DEVIATIONs (inline): an error raised
+inside an async coroutine surfaces as `RuntimeError` (so `test_async_thread_error`
+raises a plain string instead of a `__tostring` userdata), and the strong-count
+GC assertion in `test_async_thread` is omitted (the captured future lives in a
+collectible Lua userdata).
+
+Still deferred (later phases): `Send`/`Sync`, the `Compiler`
 (chunk compile options / `set_vector_ctor`), sandbox/interrupts/fflags/heap-dump,
 the proc-macro `chunk!`, and the `#[userdata_impl]` attribute macro / userdata
-registry / `create_proxy`. From `Scope`: the userdata-ref borrowing variants and
-`create_any_userdata*` (see above). From `serde`: serializable userdata
-(`create_ser_userdata*` / `wrap_ser` / `Serialize for AnyUserData`).
+registry / `create_proxy` (including its `add_async_method*` surface). From
+`Scope`: the userdata-ref borrowing variants and `create_any_userdata*` (see
+above). From `serde`: serializable userdata (`create_ser_userdata*` / `wrap_ser`
+/ `Serialize for AnyUserData`).
 
 ## Adapted files
 
@@ -89,6 +115,7 @@ registry / `create_proxy`. From `Scope`: the userdata-ref borrowing variants and
 | `tests/mlua_scope.rs`      | `tests/scope.rs` (portable subset) |
 | `tests/mlua_serde.rs`      | `tests/serde.rs` (non-userdata subset, gated `feature = "serde"`) |
 | `tests/mlua_userdata_macro.rs` | `tests/userdata_macro.rs` (derive field + `FromLua` subset, gated `feature = "macros"`) |
+| `tests/mlua_async.rs`      | `tests/async.rs` (portable subset, gated `feature = "async"`) |
 
 ## mlua MIT License
 

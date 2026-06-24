@@ -38,11 +38,12 @@
 //! The following parts of mlua's surface are intentionally **out of scope** and
 //! are noted here rather than implemented:
 //!
-//! - `async` support (P4).
 //! - Multi-VM `Send`/`Sync` (`WeakLua`, send-able handles) (P4).
 //! - Thread event callbacks (`ThreadEvent`/`ThreadTriggers`/
 //!   `set_thread_event_callback`) and per-thread hooks.
-//! - The `chunk!` proc-macro and `#[derive(UserData)]` (P4).
+//! - The `chunk!` proc-macro.
+//! - Async userdata methods (`add_async_method*`) and the `ObjectLike`
+//!   `call_async_method` surface (depend on the deferred userdata registry).
 //!
 //! Implemented in Phase 1: `Thread`/coroutine wrappers, public `RegistryKey`
 //! storage, `UserDataFields`, typed `AnyUserData::borrow`/`borrow_mut`/`take`/
@@ -57,9 +58,21 @@
 //! trait on [`Lua`], a serde `Serializer`/`Deserializer` over [`Value`]/
 //! [`Table`], `SerializeOptions`/`DeserializeOptions`, and `Serialize` impls
 //! for [`Value`]/[`Table`] with the `Value::to_serializable` wrapper.
+//!
+//! Implemented in Phase 4c (behind the `async` cargo feature): Rust `async`/
+//! `await` support — the Rust-`Future` ⟷ Lua-coroutine bridge.
+//! `Lua::create_async_function` / `Lua::yield_with`, `Function::call_async` /
+//! `Function::wrap_async` / `Function::wrap_raw_async`, `Chunk::call_async` /
+//! `Chunk::exec_async` / `Chunk::eval_async`, and `Thread::into_async`
+//! producing an `AsyncThread` that implements `Future` + `Stream`.
+//! Executor-agnostic, like mlua: the caller drives the returned futures on
+//! their own runtime.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 
+#[cfg(feature = "async")]
+#[path = "async.rs"]
+mod async_support;
 mod buffer;
 mod callback;
 mod chunk;
@@ -95,6 +108,12 @@ pub use string::LuaString;
 pub use table::{Table, TablePairs, TableSequence};
 pub use thread::{Thread, ThreadStatus};
 pub use traits::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};
+
+/// The [`AsyncThread`] driver — a coroutine being run to completion as a Rust
+/// `Future`/`Stream` (the `async` feature).
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+pub use async_support::AsyncThread;
 pub use userdata::{
     AnyUserData, UserData, UserDataFields, UserDataMethods, UserDataRef, UserDataRefMut,
 };

@@ -246,6 +246,42 @@ impl Lua {
         crate::userdata::create_userdata(self, data)
     }
 
+    /// Create a Lua function from a Rust **async** closure (the `async`
+    /// feature).
+    ///
+    /// Mirrors `mlua::Lua::create_async_function`. The closure receives an owned
+    /// [`Lua`] and the converted arguments, and returns a `Future`. When the
+    /// resulting Lua function is called, it runs on a coroutine that **yields**
+    /// while the future is pending; a driver such as
+    /// [`Function::call_async`](crate::Function::call_async) /
+    /// [`Chunk::eval_async`](crate::Chunk::eval_async) resumes the coroutine,
+    /// polls the future, and resumes it with the result when ready.
+    ///
+    /// The executor is provided by the caller (luaur-rt is executor-agnostic,
+    /// exactly like mlua): the returned futures must be `.await`ed / polled on
+    /// the caller's runtime (e.g. tokio).
+    #[cfg(feature = "async")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub fn create_async_function<F, A, FR, R>(&self, func: F) -> Result<Function>
+    where
+        F: Fn(Lua, A) -> FR + 'static,
+        A: FromLuaMulti,
+        FR: std::future::Future<Output = Result<R>> + 'static,
+        R: IntoLuaMulti,
+    {
+        let callback: crate::async_support::AsyncCallback = Box::new(move |lua, args| {
+            // Convert the arguments eagerly; defer the conversion error into the
+            // future so it surfaces uniformly on the first poll.
+            let a = A::from_lua_multi(args, &lua);
+            let fut = a.map(|a| func(lua.clone(), a));
+            Box::pin(async move {
+                let r = fut?.await?;
+                r.into_lua_multi(&lua)
+            })
+        });
+        crate::async_support::create_async_callback(self, callback)
+    }
+
     /// Creates and returns a Luau [buffer] object from a byte slice of data.
     ///
     /// Mirrors `mlua::Lua::create_buffer`.

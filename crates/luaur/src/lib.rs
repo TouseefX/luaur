@@ -33,6 +33,17 @@ pub use check::check;
 
 // The headline high-level, mlua-style API. Re-exported flat at the crate root
 // so `luaur::Lua`, `luaur::Table`, etc. are available directly.
+//
+// NOTE on the derive macros: luaur-rt's `#[derive(UserData)]` /
+// `#[derive(FromLua)]` (behind luaur-rt's `macros` feature) emit absolute
+// `::luaur_rt::...` paths, so they are designed to be used through the
+// `luaur-rt` crate directly (`#[derive(luaur_rt::UserData)]`). They are **not**
+// re-exported here through the umbrella `luaur`: a `pub use` re-export does not
+// give the user's crate an extern-crate name `luaur_rt`, so the macro's
+// `::luaur_rt::...` paths would fail to resolve when invoked as
+// `luaur::UserData`. Mirroring mlua's single-crate model, the derives live on
+// `luaur-rt`. (Re-exported `luaur::rt` already aliases the crate for the rest
+// of the API.)
 pub use luaur_rt::{
     AnyUserData, Chunk, Error, FromLua, FromLuaMulti, Function, IntoLua, IntoLuaMulti, Lua,
     LuaString, MultiValue, Result, Table, UserData, UserDataMethods, Value, Variadic,

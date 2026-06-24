@@ -50,12 +50,25 @@ feature, so the userdata-only tests and the userdata portions of `test_serialize
 / `test_serialize_failure` are dropped (with notes), as are the `serde_value`
 buffer tests.
 
+Phase 4b added the `macros` feature (behind the `macros` cargo feature): the
+`#[derive(UserData)]` and `#[derive(FromLua)]` procedural derives, provided by
+the new `luaur-rt-derive` crate and re-exported from `luaur-rt` so users write
+`#[derive(luaur_rt::UserData)]` / `#[derive(luaur_rt::FromLua)]`. The derive
+mirrors mlua's `#[derive(UserData)]` **field** surface — `add_field_method_get`
+/ `_set` per named struct field, with the `#[lua(skip|get|set|name = "...")]`
+field attributes — and mlua's `from_lua` derive. Coverage:
+`tests/mlua_userdata_macro.rs` (ported from mlua's `tests/userdata_macro.rs`,
+gated `#![cfg(feature = "macros")]`). mlua's method/meta side of that test
+comes from its `#[userdata_impl]` attribute macro + an `inventory`-based
+`UserDataRegistry` + `Lua::create_proxy`, none of which luaur-rt has, so only
+the field-deriving + `FromLua` parts are ported (with an inline note).
+
 Still deferred (later phases): async, `Send`/`Sync`, the `Compiler`
 (chunk compile options / `set_vector_ctor`), sandbox/interrupts/fflags/heap-dump,
-the proc-macro `chunk!`, and `#[derive(UserData)]`. From `Scope`: the
-userdata-ref borrowing variants and `create_any_userdata*` (see above). From
-`serde`: serializable userdata (`create_ser_userdata*` / `wrap_ser` /
-`Serialize for AnyUserData`).
+the proc-macro `chunk!`, and the `#[userdata_impl]` attribute macro / userdata
+registry / `create_proxy`. From `Scope`: the userdata-ref borrowing variants and
+`create_any_userdata*` (see above). From `serde`: serializable userdata
+(`create_ser_userdata*` / `wrap_ser` / `Serialize for AnyUserData`).
 
 ## Adapted files
 
@@ -75,6 +88,7 @@ userdata-ref borrowing variants and `create_any_userdata*` (see above). From
 | `tests/mlua_buffer.rs`     | `tests/buffer.rs` |
 | `tests/mlua_scope.rs`      | `tests/scope.rs` (portable subset) |
 | `tests/mlua_serde.rs`      | `tests/serde.rs` (non-userdata subset, gated `feature = "serde"`) |
+| `tests/mlua_userdata_macro.rs` | `tests/userdata_macro.rs` (derive field + `FromLua` subset, gated `feature = "macros"`) |
 
 ## mlua MIT License
 

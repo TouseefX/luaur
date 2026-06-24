@@ -101,6 +101,12 @@ pub use userdata::{
 pub use value::{Integer, Number, Value};
 pub use vector::Vector;
 
+/// The `#[derive(UserData)]` / `#[derive(FromLua)]` procedural derive macros
+/// (mirroring mlua's `macros` feature), re-exported so users can write
+/// `#[derive(luaur_rt::UserData)]` / `#[derive(luaur_rt::FromLua)]`.
+#[cfg(feature = "macros")]
+pub use luaur_rt_derive::{FromLua, UserData};
+
 #[cfg(feature = "serde")]
 pub use serde::{
     DeserializeOptions, Deserializer as LuaDeserializer, LuaSerdeExt, SerializableTable,

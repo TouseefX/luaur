@@ -13,9 +13,16 @@ categories = ["api-bindings", "development-tools::ffi", "game-development"]
 # Rust <-> Lua value (de)serialization via serde, mirroring mlua's `serde`
 # feature. Off by default so the base build/API is unchanged.
 serde = ["dep:serde"]
+# The `#[derive(UserData)]` / `#[derive(FromLua)]` procedural derive macros,
+# mirroring mlua's `macros` feature. Off by default so the base build/API is
+# byte-for-byte unchanged.
+macros = ["dep:luaur-rt-derive"]
 
 [dependencies]
 luaur-common = { path = "../luaur-common", version = "0.1.0" }
+# Optional: only pulled in by the `macros` feature. Provides the
+# `#[derive(UserData)]` / `#[derive(FromLua)]` proc-macros, re-exported below.
+luaur-rt-derive = { path = "../luaur-rt-derive", version = "0.1.0", optional = true }
 luaur-compiler = { path = "../luaur-compiler", version = "0.1.0" }
 luaur-vm = { path = "../luaur-vm", version = "0.1.0" }
 # Needed by `Chunk` to drive the compiler with default parse/encode options,

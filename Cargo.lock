@@ -492,9 +492,19 @@ dependencies = [
  "luaur-bytecode",
  "luaur-common",
  "luaur-compiler",
+ "luaur-rt-derive",
  "luaur-vm",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "luaur-rt-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

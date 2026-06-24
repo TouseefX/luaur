@@ -7,9 +7,17 @@
 // the `MetaMethod` enum and `UserDataFields` trait — all exercised below.
 //
 // Still deferred (later phases): `ObjectLike`, userdata user-values
-// (`set_nth_user_value`/`user_value`), `create_ser_userdata` (serde),
-// `#[derive(UserData)]` (proc-macro), and `destroy`/once-methods. The mlua
-// tests relying on those are dropped or trimmed with a one-line note.
+// (`set_nth_user_value`/`user_value`), `create_ser_userdata` (serde), and
+// `destroy`/once-methods. The mlua tests relying on those are dropped or
+// trimmed with a one-line note.
+//
+// The `#[derive(UserData)]` / `#[derive(FromLua)]` procedural derives are now
+// implemented (behind the `macros` feature, crate `luaur-rt-derive`); mlua's
+// `test_userdata_derive` (and the derive's field surface) are ported in
+// `tests/mlua_userdata_macro.rs`, gated `#![cfg(feature = "macros")]`. mlua's
+// exact `test_userdata_derive` body additionally relies on
+// `register_userdata_type` + `AnyUserData::wrap` (no luaur-rt equivalent), so
+// the *derive* behaviour is proven there over luaur-rt's `create_userdata`.
 
 use std::cell::Cell;
 use std::rc::Rc;

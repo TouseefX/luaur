@@ -26,10 +26,16 @@ pub fn main() {
         eprintln!("Could not read source {}", &script_name);
         std::process::exit(1);
     }
+    let source = source.unwrap();
 
-    let _reducer = Reducer::new();
+    // Reducer reducer;
+    let mut reducer = Reducer::new();
 
-    // The original CLI calls `Reducer::run(...)`, but the translated Rust API for `Reducer`
-    // available in this crate does not expose `run` for this item.
-    let _ = (script_name, app_name, source.unwrap(), search_text);
+    // reducer.run(std::move(scriptName), std::move(appName), *source, searchText);
+    reducer.run_string_string_string_view_string_view(
+        script_name,
+        app_name,
+        &source,
+        &search_text,
+    );
 }

@@ -35,8 +35,8 @@ impl Reducer {
 
                     let result = self.run();
                     if result == TestResult::BugFound {
-                        (*block).body.data =
-                            self.reallocate_statements(&temp_statements).as_mut_ptr();
+                        // The bug still reproduces without the statements we've culled. Commit.
+                        (*block).body.data = self.reallocate_statements(&temp_statements);
                         (*block).body.size = temp_statements.len();
                         return (true, cmp::max(2, current_chunk_count.saturating_sub(1)));
                     } else {

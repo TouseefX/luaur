@@ -31,7 +31,7 @@ impl Reducer {
             let result = self.run();
 
             if result == TestResult::BugFound {
-                (*b).body.data = self.reallocate_statements(&temp_stats).as_mut_ptr();
+                (*b).body.data = self.reallocate_statements(&temp_stats);
                 (*b).body.size = temp_stats.len();
                 true
             } else {

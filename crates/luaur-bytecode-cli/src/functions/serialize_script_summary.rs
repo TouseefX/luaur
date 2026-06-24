@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 use core::ffi::c_void;
+use std::ffi::CString;
 
 use luaur_code_gen::records::function_bytecode_summary::FunctionBytecodeSummary;
 
@@ -11,14 +12,15 @@ pub fn serialize_script_summary(
     script_summary: &Vec<FunctionBytecodeSummary>,
     fp: *mut c_void,
 ) {
-    let escaped = escape_filename(file);
+    // C++ passes `escaped.c_str()`; build a NUL-terminated copy for the `%s`.
+    let escaped = CString::new(escape_filename(file).replace('\0', "")).unwrap();
     let function_count = script_summary.len();
 
     unsafe {
         fprintf(
             fp,
             b"    \"%s\": [\n\0".as_ptr() as *const core::ffi::c_char,
-            escaped.as_ptr() as *const core::ffi::c_char,
+            escaped.as_ptr(),
         );
     }
 

@@ -1,10 +1,19 @@
 use core::ffi::c_void;
+use std::ffi::CString;
 
 use luaur_code_gen::records::function_bytecode_summary::FunctionBytecodeSummary;
 
+/// Source: `CLI/src/Bytecode.cpp:185-215` (`serializeFunctionSummary`).
+///
+/// The `%s` fields take C-string pointers. `getSource()`/`getName()` return a
+/// non-NUL-terminated `&str`, so they are copied into NUL-terminated `CString`s
+/// (the C++ uses `std::string::c_str()`) before being handed to `fprintf`.
 pub fn serialize_function_summary(summary: &FunctionBytecodeSummary, fp: *mut c_void) {
     let nesting_limit = summary.get_nesting_limit();
     let op_limit = summary.get_op_limit();
+
+    let source = CString::new(summary.get_source().replace('\0', "")).unwrap();
+    let name = CString::new(summary.get_name().replace('\0', "")).unwrap();
 
     unsafe {
         // Write opening brace
@@ -13,13 +22,13 @@ pub fn serialize_function_summary(summary: &FunctionBytecodeSummary, fp: *mut c_
         fprintf(
             fp,
             c"            \"source\": \"%s\",\n".as_ptr(),
-            summary.get_source().as_ptr(),
+            source.as_ptr(),
         );
         // Write name
         fprintf(
             fp,
             c"            \"name\": \"%s\",\n".as_ptr(),
-            summary.get_name().as_ptr(),
+            name.as_ptr(),
         );
         // Write line
         fprintf(

@@ -12,6 +12,10 @@ categories = ["command-line-utilities", "development-tools"]
 [lib]
 crate-type = ["rlib", "cdylib"]
 
+[[bin]]
+name = "luaur-analyze"
+path = "src/main.rs"
+
 [dependencies]
 wasm-bindgen = { version = "0.2", optional = true }
 luaur-analysis = { path = "../luaur-analysis", version = "0.1.0" }

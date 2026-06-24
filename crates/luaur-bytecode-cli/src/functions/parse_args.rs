@@ -1,18 +1,19 @@
 //! Node: `cxx:Function:Luau.Bytecode.CLI:CLI/src/Bytecode.cpp:47:parse_args`
-//! Source: `CLI/src/Bytecode.cpp`
+//! Source: `CLI/src/Bytecode.cpp:47-97`
 
 use alloc::string::String;
+use core::ffi::c_char;
 use std::ffi::CStr;
 
-use crate::functions::display_help::display_help;
+use luaur_cli_lib::functions::set_luau_flags_flags_alt_b::set_luau_flags_c_char;
 
-extern "C" {
-    fn setLuauFlags(list: *const i8);
-}
+use crate::functions::display_help::display_help;
+use crate::records::global_options::globalOptions;
 
 pub(crate) fn parse_args(argc: i32, argv: *mut *mut i8, summary_file: &mut String) -> bool {
     for i in 1..argc {
-        let arg = unsafe { CStr::from_ptr(*argv.add(i as usize)) };
+        let arg_ptr = unsafe { *argv.add(i as usize) };
+        let arg = unsafe { CStr::from_ptr(arg_ptr) };
         let arg_str = arg.to_str().unwrap();
 
         if arg_str == "-h" || arg_str == "--help" {
@@ -26,7 +27,9 @@ pub(crate) fn parse_args(argc: i32, argv: *mut *mut i8, summary_file: &mut Strin
                 return false;
             }
             // globalOptions.optimizationLevel = level;
-            // TODO: set global optimization level
+            unsafe {
+                globalOptions.optimization_level = level;
+            }
         } else if arg_str.starts_with("-g") {
             let level_str = &arg_str[2..];
             let level: i32 = level_str.parse().unwrap_or(0);
@@ -35,7 +38,9 @@ pub(crate) fn parse_args(argc: i32, argv: *mut *mut i8, summary_file: &mut Strin
                 return false;
             }
             // globalOptions.debugLevel = level;
-            // TODO: set global debug level
+            unsafe {
+                globalOptions.debug_level = level;
+            }
         } else if arg_str.starts_with("--summary-file=") {
             let filename = &arg_str[15..];
             if filename.is_empty() {
@@ -44,10 +49,9 @@ pub(crate) fn parse_args(argc: i32, argv: *mut *mut i8, summary_file: &mut Strin
             }
             *summary_file = filename.to_string();
         } else if arg_str.starts_with("--fflags=") {
-            let flags = &arg_str[9..];
-            let flags_c = std::ffi::CString::new(flags).unwrap();
+            // setLuauFlags(argv[i] + 9);
             unsafe {
-                setLuauFlags(flags_c.as_ptr());
+                set_luau_flags_c_char(arg_ptr.add(9) as *const c_char);
             }
         } else if arg_str.starts_with('-') {
             eprintln!("Error: Unrecognized option '{}'.\n", arg_str);

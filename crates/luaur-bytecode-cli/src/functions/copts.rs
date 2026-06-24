@@ -1,9 +1,14 @@
 use luaur_compiler::records::compile_options::CompileOptions;
 
+use crate::records::global_options::globalOptions;
+
 pub fn copts() -> CompileOptions {
-    let mut result = CompileOptions {
-        optimization_level: 0,
-        debug_level: 0,
+    // result.optimizationLevel = globalOptions.optimizationLevel;
+    // result.debugLevel = globalOptions.debugLevel;
+    // result.typeInfoLevel = 1;
+    let result = CompileOptions {
+        optimization_level: unsafe { globalOptions.optimization_level },
+        debug_level: unsafe { globalOptions.debug_level },
         type_info_level: 1,
         coverage_level: 0,
         vector_lib: core::ptr::null(),

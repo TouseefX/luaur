@@ -21,13 +21,8 @@ pub fn serialize_summaries(
     let file_count = files.len();
 
     if fp.is_null() {
-        unsafe {
-            fprintf(
-                stderr,
-                b"Unable to open '%s'.\n\0".as_ptr() as *const c_char,
-                summary_file.as_ptr() as *const c_char,
-            );
-        }
+        // fprintf(stderr, "Unable to open '%s'.\n", summaryFile.c_str());
+        eprintln!("Unable to open '{}'.", summary_file.trim_end_matches('\0'));
         return false;
     }
 
@@ -55,7 +50,6 @@ pub fn serialize_summaries(
 }
 
 extern "C" {
-    static mut stderr: *mut c_void;
     fn fopen(filename: *const c_char, mode: *const c_char) -> *mut c_void;
     fn fclose(stream: *mut c_void) -> i32;
     fn fprintf(stream: *mut c_void, format: *const c_char, ...) -> i32;

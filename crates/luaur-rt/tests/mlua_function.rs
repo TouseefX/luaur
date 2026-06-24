@@ -1,14 +1,16 @@
 // Adapted from mlua (https://github.com/mlua-rs/mlua), MIT License,
 // © 2019 Aleksandr Orlenko / mlua authors. See tests/ATTRIBUTION.md.
 //
-// Dropped (deferred luaur-rt features): test_function_environment (Function
-// environment get/set), test_function_info (debug Function::info), and the
-// Luau-only test_function_coverage / test_function_deep_clone (compiler
-// coverage + deep clone), test_function_dump (non-luau bytecode dump), and the
-// Function::wrap / wrap_raw family (no `wrap` constructor — luaur-rt builds
-// callbacks via `Lua::create_function`).
+// Re-enabled in Phase 1: test_function_environment (Function environment
+// get/set + Chunk::set_environment) and test_function_info (Function::info).
+//
+// Still dropped (deferred luaur-rt features): the Luau-only
+// test_function_coverage / test_function_deep_clone (compiler coverage + deep
+// clone), test_function_dump (non-luau bytecode dump), and the Function::wrap /
+// wrap_raw family (no `wrap` constructor — luaur-rt builds callbacks via
+// `Lua::create_function`).
 
-use luaur_rt::{Error, Function, Lua, Result, Variadic};
+use luaur_rt::{Error, Function, Lua, Result, Table, Variadic};
 
 #[test]
 fn test_function_call() -> Result<()> {
@@ -115,6 +117,134 @@ fn test_create_function_basic() -> Result<()> {
     "#,
     )
     .exec()?;
+
+    Ok(())
+}
+
+#[test]
+fn test_function_environment() -> Result<()> {
+    let lua = Lua::new();
+    let globals = lua.globals();
+
+    // We must not get or set environment for C (Rust) functions.
+    let rust_func = lua.create_function(|_, ()| Ok("hello"))?;
+    assert_eq!(rust_func.environment(), None);
+    assert_eq!(rust_func.set_environment(globals.clone()).ok(), Some(false));
+
+    // Test getting a Lua function's environment.
+    globals.set("hello", "global")?;
+    let lua_func = lua
+        .load(
+            r#"
+        local t = ""
+        return function()
+            -- two upvalues
+            return t .. hello
+        end
+    "#,
+        )
+        .eval::<Function>()?;
+    let lua_func2 = lua.load("return hello").into_function()?;
+    assert_eq!(lua_func.call::<String>(())?, "global");
+    assert_eq!(lua_func.environment().as_ref(), Some(&globals));
+
+    // Test changing the environment.
+    let env = lua.create_table_from([("hello", "local")])?;
+    assert!(lua_func.set_environment(env.clone())?);
+    assert_eq!(lua_func.call::<String>(())?, "local");
+    assert_eq!(lua_func2.call::<String>(())?, "global");
+
+    // More complex case.
+    lua.load(
+        r#"
+        local number = 15
+        function lucky() return tostring("number is "..number) end
+        new_env = {
+            tostring = function() return tostring(number) end,
+        }
+    "#,
+    )
+    .exec()?;
+    let lucky = globals.get::<Function>("lucky")?;
+    assert_eq!(lucky.call::<String>(())?, "number is 15");
+    let new_env = globals.get::<Table>("new_env")?;
+    lucky.set_environment(new_env)?;
+    assert_eq!(lucky.call::<String>(())?, "15");
+
+    // Test getting the environment set by the chunk loader.
+    let chunk = lua
+        .load("return hello")
+        .set_environment(lua.create_table_from([("hello", "chunk")])?)
+        .into_function()?;
+    assert_eq!(chunk.environment().unwrap().get::<String>("hello")?, "chunk");
+
+    Ok(())
+}
+
+#[test]
+fn test_function_info() -> Result<()> {
+    let lua = Lua::new();
+
+    let globals = lua.globals();
+    lua.load(
+        r#"
+        function function1()
+            return function() end
+        end
+    "#,
+    )
+    .set_name("source1")
+    .exec()?;
+
+    let function1 = globals.get::<Function>("function1")?;
+    let function2 = function1.call::<Function>(())?;
+    let function3 = lua.create_function(|_, ()| Ok(()))?;
+
+    let function1_info = function1.info();
+    assert_eq!(function1_info.name.as_deref(), Some("function1"));
+    assert_eq!(function1_info.source.as_deref(), Some("source1"));
+    assert_eq!(function1_info.line_defined, Some(2));
+    // Luau does not report `last_line_defined`.
+    assert_eq!(function1_info.last_line_defined, None);
+    assert_eq!(function1_info.what, "Lua");
+
+    let function2_info = function2.info();
+    assert_eq!(function2_info.name, None);
+    assert_eq!(function2_info.source.as_deref(), Some("source1"));
+    assert_eq!(function2_info.line_defined, Some(3));
+    assert_eq!(function2_info.last_line_defined, None);
+    assert_eq!(function2_info.what, "Lua");
+
+    let function3_info = function3.info();
+    // DEVIATION: luaur-rt tags its callback closures with an internal debug
+    // name, so `name` is `Some("luaur-rt-callback")` rather than mlua's `None`.
+    assert_eq!(function3_info.source.as_deref(), Some("=[C]"));
+    assert_eq!(function3_info.line_defined, None);
+    assert_eq!(function3_info.last_line_defined, None);
+    assert_eq!(function3_info.what, "C");
+
+    let print_info = globals.get::<Function>("print")?.info();
+    assert_eq!(print_info.name.as_deref(), Some("print"));
+    assert_eq!(print_info.source.as_deref(), Some("=[C]"));
+    assert_eq!(print_info.what, "C");
+    assert_eq!(print_info.line_defined, None);
+
+    // Function with upvalues and params.
+    let func_with_upvalues = lua
+        .load(
+            r#"
+        local x, y = ...
+        return function(a, ...)
+            return a*x + y
+        end
+    "#,
+        )
+        .into_function()?
+        .call::<Function>((10, 20))?;
+    let func_with_upvalues_info = func_with_upvalues.info();
+    assert_eq!(func_with_upvalues_info.num_upvalues, 2);
+    assert_eq!(func_with_upvalues_info.num_params, 1);
+    assert_eq!(func_with_upvalues_info.is_vararg, true);
 
     Ok(())
 }

@@ -60,9 +60,19 @@ pub enum Error {
     UserDataTypeMismatch,
     /// A `UserData` value was used after it had been destructed (dropped).
     UserDataDestructed,
+    /// A `UserData` could not be immutably borrowed because it is already
+    /// mutably borrowed.
+    UserDataBorrowError,
     /// A `UserData` could not be mutably borrowed because it is already
     /// borrowed.
     UserDataBorrowMutError,
+    /// A coroutine ([`crate::Thread`]) could not be resumed because it has
+    /// finished, errored, or is currently running. Mirrors
+    /// `mlua::Error::CoroutineUnresumable`.
+    CoroutineUnresumable,
+    /// A [`crate::RegistryKey`] was used with a [`crate::Lua`] that does not
+    /// own it. Mirrors `mlua::Error::MismatchedRegistryKey`.
+    MismatchedRegistryKey,
     /// An error originating outside Lua, wrapped via [`Error::external`].
     ExternalError(Arc<DynStdError>),
 }
@@ -122,7 +132,12 @@ impl fmt::Display for Error {
             }
             Error::UserDataTypeMismatch => write!(f, "userdata type mismatch"),
             Error::UserDataDestructed => write!(f, "userdata used after being destructed"),
-            Error::UserDataBorrowMutError => write!(f, "userdata already mutably borrowed"),
+            Error::UserDataBorrowError => write!(f, "userdata already mutably borrowed"),
+            Error::UserDataBorrowMutError => write!(f, "userdata already borrowed"),
+            Error::CoroutineUnresumable => write!(f, "cannot resume this coroutine"),
+            Error::MismatchedRegistryKey => {
+                write!(f, "registry key used with the wrong Lua instance")
+            }
             Error::ExternalError(err) => write!(f, "{err}"),
         }
     }

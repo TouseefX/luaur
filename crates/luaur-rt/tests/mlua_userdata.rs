@@ -1,18 +1,23 @@
 // Adapted from mlua (https://github.com/mlua-rs/mlua), MIT License,
 // © 2019 Aleksandr Orlenko / mlua authors. See tests/ATTRIBUTION.md.
 //
-// luaur-rt's userdata v1 supports *constructing* userdata and *using it from
-// Lua* (methods, mutable methods, plain functions, and meta-methods). Rust-side
-// typed read-back (`borrow`/`borrow_mut`/`take`/`is`/`type_id`),
-// `UserDataFields`, `UserDataRef`, `MetaMethod` enum, `ObjectLike`,
-// user-values, and `destroy`/once-methods are deferred. The mlua tests that
-// rely on those are dropped; the ones below exercise the supported from-Lua
-// surface, keeping mlua's behavioral assertions.
+// luaur-rt's userdata supports *constructing* userdata, *using it from Lua*
+// (methods, mutable methods, plain functions, meta-methods, and fields), and
+// Rust-side typed read-back (`borrow`/`borrow_mut`/`take`/`is`/`type_id`) via
+// the `MetaMethod` enum and `UserDataFields` trait — all exercised below.
+//
+// Still deferred (later phases): `ObjectLike`, userdata user-values
+// (`set_nth_user_value`/`user_value`), `create_ser_userdata` (serde),
+// `#[derive(UserData)]` (proc-macro), and `destroy`/once-methods. The mlua
+// tests relying on those are dropped or trimmed with a one-line note.
 
 use std::cell::Cell;
 use std::rc::Rc;
+use std::sync::Arc;
 
-use luaur_rt::{Function, Lua, Result, UserData, UserDataMethods, Variadic};
+use luaur_rt::{
+    Error, Function, Lua, MetaMethod, Result, UserData, UserDataFields, UserDataMethods, Variadic,
+};
 
 #[test]
 fn test_methods() -> Result<()> {
@@ -30,7 +35,8 @@ fn test_methods() -> Result<()> {
 
     let lua = Lua::new();
     let globals = lua.globals();
-    globals.set("userdata", lua.create_userdata(MyUserData(42))?)?;
+    let userdata = lua.create_userdata(MyUserData(42))?;
+    globals.set("userdata", &userdata)?;
     lua.load(
         r#"
         function get_it()
@@ -46,8 +52,135 @@ fn test_methods() -> Result<()> {
     let get = globals.get::<Function>("get_it")?;
     let set = globals.get::<Function>("set_it")?;
     assert_eq!(get.call::<i64>(())?, 42);
+    // Mutate the wrapped value through a typed Rust-side borrow.
+    userdata.borrow_mut::<MyUserData>()?.0 = 64;
+    assert_eq!(get.call::<i64>(())?, 64);
     set.call::<()>(100)?;
     assert_eq!(get.call::<i64>(())?, 100);
+
+    Ok(())
+}
+
+#[test]
+fn test_userdata() -> Result<()> {
+    use std::any::TypeId;
+
+    struct UserData1(i64);
+    struct UserData2(Box<i64>);
+
+    impl UserData for UserData1 {}
+    impl UserData for UserData2 {}
+
+    let lua = Lua::new();
+    let userdata1 = lua.create_userdata(UserData1(1))?;
+    let userdata2 = lua.create_userdata(UserData2(Box::new(2)))?;
+
+    assert!(userdata1.is::<UserData1>());
+    assert!(userdata1.type_id() == Some(TypeId::of::<UserData1>()));
+    assert!(!userdata1.is::<UserData2>());
+    assert!(userdata2.is::<UserData2>());
+    assert!(!userdata2.is::<UserData1>());
+    assert!(userdata2.type_id() == Some(TypeId::of::<UserData2>()));
+
+    assert_eq!(userdata1.borrow::<UserData1>()?.0, 1);
+    assert_eq!(*userdata2.borrow::<UserData2>()?.0, 2);
+
+    Ok(())
+}
+
+#[test]
+fn test_userdata_take() -> Result<()> {
+    // Adapted from mlua's `test_userdata_take` (the user-value parts are
+    // dropped). Exercises borrow-blocks-take, take, post-take destructed state,
+    // and that `take` drops the value.
+    #[derive(Debug)]
+    struct MyUserdata(Arc<i64>);
+
+    impl UserData for MyUserdata {
+        fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
+            methods.add_method("num", |_, this, ()| Ok(*this.0))
+        }
+    }
+
+    let lua = Lua::new();
+    let rc = Arc::new(18);
+    let userdata = lua.create_userdata(MyUserdata(rc.clone()))?;
+    lua.globals().set("userdata", &userdata)?;
+    assert_eq!(Arc::strong_count(&rc), 2);
+
+    {
+        let _value = userdata.borrow::<MyUserdata>()?;
+        // We should not be able to take userdata while it's borrowed.
+        match userdata.take::<MyUserdata>() {
+            Err(Error::UserDataBorrowMutError) => {}
+            r => panic!("expected `UserDataBorrowMutError` error, got {:?}", r),
+        }
+    }
+
+    let value = userdata.take::<MyUserdata>()?;
+    assert_eq!(*value.0, 18);
+    drop(value);
+    assert_eq!(Arc::strong_count(&rc), 1);
+
+    match userdata.borrow::<MyUserdata>() {
+        Err(Error::UserDataDestructed) => {}
+        r => panic!("expected `UserDataDestructed` error, got {:?}", r),
+    }
+    // Calling a method on the destructed userdata surfaces the destructed state.
+    match lua.load("userdata:num()").exec() {
+        Err(Error::RuntimeError(_)) => {}
+        r => panic!("improper return for destructed userdata: {:?}", r),
+    }
+
+    assert!(!userdata.is::<MyUserdata>());
+
+    Ok(())
+}
+
+#[test]
+fn test_fields() -> Result<()> {
+    // Adapted from mlua's `test_fields`: covers `add_field`,
+    // `add_field_method_get`/`set`, and `add_field_function_get`/`set`. The
+    // user-value and `add_meta_field` parts of the mlua test are dropped
+    // (deferred subsystems).
+    let lua = Lua::new();
+    let globals = lua.globals();
+
+    #[derive(Copy, Clone)]
+    struct MyUserData(i64);
+
+    impl UserData for MyUserData {
+        fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
+            fields.add_field("static", "constant");
+            fields.add_field_method_get("val", |_, data| Ok(data.0));
+            fields.add_field_method_set("val", |_, data, val| {
+                data.0 = val;
+                Ok(())
+            });
+
+            // Field that emulates a method by returning a closure.
+            fields.add_field_function_get("val_fget", |lua, ud| {
+                lua.create_function(move |_, ()| Ok(ud.borrow::<MyUserData>()?.0))
+            });
+        }
+
+        fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
+            methods.add_method("dummy", |_, _, ()| Ok(()));
+        }
+    }
+
+    globals.set("ud", lua.create_userdata(MyUserData(7))?)?;
+    lua.load(
+        r#"
+        assert(ud.static == "constant")
+        assert(ud.val == 7)
+        ud.val = 10
+        assert(ud.val == 10)
+        assert(ud:val_fget() == 10)
+        ud:dummy()
+    "#,
+    )
+    .exec()?;
 
     Ok(())
 }
@@ -90,8 +223,13 @@ fn test_metamethods() -> Result<()> {
     impl UserData for MyUserData {
         fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
             methods.add_method("get", |_, data, ()| Ok(data.0));
-            methods.add_meta_method("__add", |_, data, other: i64| Ok(data.0 + other));
+            // The `MetaMethod` enum is accepted by `add_meta_method` (it also
+            // accepts a raw `"__add"` string, exercised by `__sub` below).
+            methods.add_meta_method(MetaMethod::Add, |_, data, other: i64| Ok(data.0 + other));
             methods.add_meta_method("__sub", |_, data, other: i64| Ok(data.0 - other));
+            methods.add_meta_method(MetaMethod::ToString, |_, data, ()| {
+                Ok(format!("MyUserData({})", data.0))
+            });
         }
     }
 
@@ -102,6 +240,7 @@ fn test_metamethods() -> Result<()> {
     assert_eq!(lua.load("return userdata1 + 3").eval::<i64>()?, 10);
     assert_eq!(lua.load("return userdata1 - 2").eval::<i64>()?, 5);
     assert_eq!(lua.load("return userdata1:get()").eval::<i64>()?, 7);
+    assert_eq!(lua.load("return tostring(userdata1)").eval::<String>()?, "MyUserData(7)");
 
     Ok(())
 }

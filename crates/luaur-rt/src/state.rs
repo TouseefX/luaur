@@ -255,6 +255,7 @@ impl Lua {
             lua: self.clone(),
             source: source.as_ref().to_string(),
             name: "chunk".to_string(),
+            environment: None,
         }
     }
 

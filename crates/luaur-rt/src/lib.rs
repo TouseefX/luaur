@@ -35,17 +35,19 @@
 //!
 //! ## Deferred (not yet implemented)
 //!
-//! The following parts of mlua's surface are intentionally **out of scope for
-//! v1** and are noted here rather than implemented:
+//! The following parts of mlua's surface are intentionally **out of scope** and
+//! are noted here rather than implemented:
 //!
-//! - Threads / coroutine wrappers (`Thread`), `Scope`, and `async` support.
-//! - `serde` integration, `Buffer`, and vector userdata helpers.
-//! - Multi-VM `Send`/`Sync` (`WeakLua`, send-able handles).
-//! - `UserDataFields` (field getters/setters) and typed Rust-side
-//!   `AnyUserData::borrow` read-back — userdata v1 supports construction and
-//!   method/meta-method use *from Lua*.
-//! - `RegistryKey`-based long-term value storage (handles use registry refs
-//!   internally, but there is no public `RegistryKey` API yet).
+//! - `Scope` (P3) and `async` support (P4).
+//! - `serde` integration (P4), `Buffer` and vector userdata helpers (P2).
+//! - Multi-VM `Send`/`Sync` (`WeakLua`, send-able handles) (P4).
+//! - Thread event callbacks (`ThreadEvent`/`ThreadTriggers`/
+//!   `set_thread_event_callback`) and per-thread hooks.
+//! - The `chunk!` proc-macro and `#[derive(UserData)]` (P4).
+//!
+//! Implemented in Phase 1: `Thread`/coroutine wrappers, public `RegistryKey`
+//! storage, `UserDataFields`, typed `AnyUserData::borrow`/`borrow_mut`/`take`/
+//! `is`, the `MetaMethod` enum, and `Function::info`/`environment`.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 
@@ -55,23 +57,31 @@ mod conversion;
 mod error;
 mod ffi;
 mod function;
+mod metamethod;
 mod multi;
+mod registry;
 mod state;
 mod string;
 mod table;
+mod thread;
 mod traits;
 mod userdata;
 mod value;
 
-pub use chunk::Chunk;
+pub use chunk::{Chunk, ChunkMode};
 pub use error::{Error, ExternalError, ExternalResult, Result};
-pub use function::Function;
+pub use function::{Function, FunctionInfo};
+pub use metamethod::MetaMethod;
 pub use multi::{MultiValue, Variadic};
+pub use registry::RegistryKey;
 pub use state::Lua;
 pub use string::LuaString;
 pub use table::{Table, TablePairs, TableSequence};
+pub use thread::{Thread, ThreadStatus};
 pub use traits::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};
-pub use userdata::{AnyUserData, UserData, UserDataMethods};
+pub use userdata::{
+    AnyUserData, UserData, UserDataFields, UserDataMethods, UserDataRef, UserDataRefMut,
+};
 pub use value::{Integer, Number, Value};
 
 /// Idiomatic glob-import prelude. Mirrors `mlua::prelude`, additionally
@@ -80,18 +90,23 @@ pub use value::{Integer, Number, Value};
 pub mod prelude {
     pub use crate::{
         AnyUserData, Chunk, Error, ExternalError, ExternalResult, FromLua, FromLuaMulti, Function,
-        IntoLua, IntoLuaMulti, Lua, LuaString, MultiValue, Result, Table, UserData,
-        UserDataMethods, Value, Variadic,
+        IntoLua, IntoLuaMulti, Lua, LuaString, MetaMethod, MultiValue, RegistryKey, Result, Table,
+        Thread, ThreadStatus, UserData, UserDataFields, UserDataMethods, Value, Variadic,
     };
 
     // mlua-style `Lua*`-prefixed aliases for users coming from mlua's prelude.
     pub use crate::AnyUserData as LuaAnyUserData;
     pub use crate::Error as LuaError;
     pub use crate::Function as LuaFunction;
+    pub use crate::MetaMethod as LuaMetaMethod;
     pub use crate::MultiValue as LuaMultiValue;
+    pub use crate::RegistryKey as LuaRegistryKey;
     pub use crate::Result as LuaResult;
     pub use crate::Table as LuaTable;
+    pub use crate::Thread as LuaThread;
+    pub use crate::ThreadStatus as LuaThreadStatus;
     pub use crate::UserData as LuaUserData;
+    pub use crate::UserDataFields as LuaUserDataFields;
     pub use crate::UserDataMethods as LuaUserDataMethods;
     pub use crate::Value as LuaValue;
     pub use crate::Variadic as LuaVariadic;

@@ -67,6 +67,23 @@ pub(crate) use luaur_vm::functions::lua_ref::lua_ref;
 pub(crate) use luaur_vm::functions::lua_unref::lua_unref;
 pub(crate) use luaur_vm::functions::luau_load::luau_load;
 
+// ---- threads / coroutines ------------------------------------------------
+pub(crate) use luaur_vm::functions::lua_costatus::lua_costatus;
+pub(crate) use luaur_vm::functions::lua_newthread::lua_newthread;
+pub(crate) use luaur_vm::functions::lua_pushthread::lua_pushthread;
+pub(crate) use luaur_vm::functions::lua_resetthread::lua_resetthread;
+pub(crate) use luaur_vm::functions::lua_resume::lua_resume;
+pub(crate) use luaur_vm::functions::lua_resumeerror::lua_resumeerror;
+pub(crate) use luaur_vm::functions::lua_status::lua_status;
+pub(crate) use luaur_vm::functions::lua_tothread::lua_tothread;
+pub(crate) use luaur_vm::functions::lua_xmove::lua_xmove;
+
+// ---- function environment + debug info -----------------------------------
+pub(crate) use luaur_vm::functions::lua_getfenv::lua_getfenv;
+pub(crate) use luaur_vm::functions::lua_getinfo::lua_getinfo;
+pub(crate) use luaur_vm::functions::lua_setfenv::lua_setfenv;
+pub(crate) use luaur_vm::records::lua_debug::LuaDebug;
+
 // ---- macro-defined helpers (exposed as plain fns) ------------------------
 pub(crate) use luaur_vm::macros::lua_globalsindex::LUA_GLOBALSINDEX;
 pub(crate) use luaur_vm::macros::lua_pop::lua_pop;
@@ -84,4 +101,23 @@ pub(crate) mod ttype {
     pub const TABLE: c_int = 7;
     pub const FUNCTION: c_int = 8;
     pub const USERDATA: c_int = 9;
+    pub const THREAD: c_int = 10;
+}
+
+/// Coroutine status codes returned by [`super::lua_costatus`] (mirrors luaur's
+/// `lua_CoStatus`). Kept local so we don't leak the VM enum.
+pub(crate) mod costatus {
+    use super::c_int;
+    pub const RUNNING: c_int = 0;
+    pub const SUSPENDED: c_int = 1;
+    pub const NORMAL: c_int = 2;
+    pub const FINISHED: c_int = 3;
+    pub const ERROR: c_int = 4;
+}
+
+/// Lua call/load status codes (subset). Mirrors luaur's `lua_Status`.
+pub(crate) mod status {
+    use super::c_int;
+    pub const OK: c_int = 0;
+    pub const YIELD: c_int = 1;
 }

@@ -40,9 +40,10 @@ pub enum Value {
     Table(Table),
     /// A function (Lua or Rust).
     Function(Function),
-    /// A userdata value, represented opaquely as a table-backed handle. (Full
-    /// `AnyUserData` borrowing is deferred — see crate docs.)
+    /// A userdata value with typed Rust-side borrowing.
     UserData(crate::userdata::AnyUserData),
+    /// A thread (coroutine).
+    Thread(crate::thread::Thread),
     /// A boxed Lua/Rust error carried as a first-class value (mirrors
     /// `mlua::Value::Error`). Produced when a Rust error is returned to Lua.
     Error(Box<crate::error::Error>),
@@ -62,6 +63,7 @@ impl Value {
             Value::Table(_) => "table",
             Value::Function(_) => "function",
             Value::UserData(_) => "userdata",
+            Value::Thread(_) => "thread",
             Value::Error(_) => "error",
         }
     }
@@ -165,6 +167,19 @@ impl Value {
         }
     }
 
+    /// Whether this is a thread (coroutine) value.
+    pub fn is_thread(&self) -> bool {
+        matches!(self, Value::Thread(_))
+    }
+
+    /// View as a thread handle.
+    pub fn as_thread(&self) -> Option<&crate::thread::Thread> {
+        match self {
+            Value::Thread(t) => Some(t),
+            _ => None,
+        }
+    }
+
     /// View as an `i32` if it is an in-range integer.
     pub fn as_i32(&self) -> Option<i32> {
         self.as_integer().and_then(|i| i32::try_from(i).ok())
@@ -207,6 +222,7 @@ impl Value {
             Value::Table(t) => t.to_pointer(),
             Value::Function(f) => f.to_pointer(),
             Value::UserData(u) => u.to_pointer(),
+            Value::Thread(t) => t.to_pointer(),
             _ => core::ptr::null(),
         }
     }
@@ -241,6 +257,7 @@ impl Value {
                     Value::Table(t) => t.lua(),
                     Value::Function(f) => f.lua(),
                     Value::UserData(u) => u.lua(),
+                    Value::Thread(t) => t.lua(),
                     _ => unreachable!(),
                 };
                 lua.value_to_string(other)
@@ -279,6 +296,7 @@ impl PartialEq for Value {
             (Value::Table(a), Value::Table(b)) => a.to_pointer() == b.to_pointer(),
             (Value::Function(a), Value::Function(b)) => a.to_pointer() == b.to_pointer(),
             (Value::UserData(a), Value::UserData(b)) => a.to_pointer() == b.to_pointer(),
+            (Value::Thread(a), Value::Thread(b)) => a.to_pointer() == b.to_pointer(),
             (Value::Error(a), Value::Error(b)) => a.to_string() == b.to_string(),
             _ => false,
         }
@@ -304,6 +322,7 @@ pub(crate) fn push_value(lua: &Lua, value: &Value) -> Result<()> {
             Value::Table(t) => t.push_to_stack(),
             Value::Function(f) => f.push_to_stack(),
             Value::UserData(u) => u.push_to_stack(),
+            Value::Thread(t) => t.push_to_stack(),
             // An error value pushes as its message string (so Lua code that
             // receives it can `tostring(err)` it). This matches how a Rust
             // callback's `Err` surfaces to Lua as a string error object.
@@ -348,6 +367,10 @@ pub(crate) fn value_from_stack(lua: &Lua, idx: c_int) -> Result<Value> {
             x if x == ttype::USERDATA => {
                 lua_pushvalue(state, idx);
                 Value::UserData(crate::userdata::AnyUserData::from_ref(lua.pop_ref()))
+            }
+            x if x == ttype::THREAD => {
+                lua_pushvalue(state, idx);
+                Value::Thread(crate::thread::Thread::from_ref(lua.pop_ref()))
             }
             // Vectors and any other exotic tags collapse to Nil for v1.
             _ => Value::Nil,

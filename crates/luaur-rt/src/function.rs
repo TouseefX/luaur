@@ -109,6 +109,159 @@ impl Function {
             p
         }
     }
+
+    /// The function's environment table (its globals), or `None` for a Rust
+    /// (C) function. Mirrors `mlua::Function::environment`.
+    pub fn environment(&self) -> Option<crate::table::Table> {
+        let lua = self.lua();
+        let state = lua.state();
+        unsafe {
+            self.reference.push();
+            // `lua_getfenv` only applies to Lua closures; a C function has no
+            // accessible environment.
+            if !self.is_lua_closure() {
+                lua_pop(state, 1);
+                return None;
+            }
+            lua_getfenv(state, -1);
+            // stack: [func, env]
+            if lua_type(state, -1) != ttype::TABLE {
+                lua_pop(state, 2);
+                return None;
+            }
+            let env = crate::table::Table::from_ref(lua.pop_ref());
+            lua_pop(state, 1); // pop func
+            Some(env)
+        }
+    }
+
+    /// Set the function's environment table. Returns `Ok(false)` for a Rust
+    /// (C) function (which has no settable environment) and `Ok(true)` for a
+    /// Lua closure. Mirrors `mlua::Function::set_environment`.
+    pub fn set_environment(&self, env: crate::table::Table) -> Result<bool> {
+        let lua = self.lua();
+        let state = lua.state();
+        unsafe {
+            self.reference.push();
+            if !self.is_lua_closure() {
+                lua_pop(state, 1);
+                return Ok(false);
+            }
+            // stack: [func]; push env, then lua_setfenv(func_index).
+            env.push_to_stack();
+            let ok = lua_setfenv(state, -2);
+            // lua_setfenv pops the env table; pop the function too.
+            lua_pop(state, 1);
+            Ok(ok != 0)
+        }
+    }
+
+    /// Whether the value on top of the stack (this function, just pushed) is a
+    /// Lua closure (vs a C function). Determined via the debug `what` field.
+    unsafe fn is_lua_closure(&self) -> bool {
+        let state = self.reference.state();
+        unsafe {
+            // The function is on top of the stack (index -1). Ask lua_getinfo
+            // about it via the ">" level convention: push the function and use
+            // option ">" so it pops the function and reads its info.
+            lua_pushvalue(state, -1);
+            let mut ar: LuaDebug = core::mem::zeroed();
+            let opt = c">s";
+            let ok = lua_getinfo(state, -1, opt.as_ptr() as *const c_char, &mut ar);
+            if ok == 0 {
+                return false;
+            }
+            if ar.what.is_null() {
+                return false;
+            }
+            let what = std::ffi::CStr::from_ptr(ar.what).to_bytes();
+            // "Lua" and "main" are Lua closures; "C" is a native function.
+            what == b"Lua" || what == b"main"
+        }
+    }
+
+    /// Debug information about this function. Mirrors `mlua::Function::info`.
+    pub fn info(&self) -> FunctionInfo {
+        let lua = self.lua();
+        let state = lua.state();
+        unsafe {
+            self.reference.push();
+            let mut ar: LuaDebug = core::mem::zeroed();
+            // Options: n=name, s=source/what/linedefined, a=params/vararg,
+            // u=upvalues. The ">" prefix pops the function from the stack and
+            // reads info about it.
+            let opt = c">nsau";
+            let ok = lua_getinfo(state, -1, opt.as_ptr() as *const c_char, &mut ar);
+            if ok == 0 {
+                return FunctionInfo::default();
+            }
+            let cstr = |p: *const c_char| -> Option<String> {
+                if p.is_null() {
+                    None
+                } else {
+                    Some(
+                        std::ffi::CStr::from_ptr(p)
+                            .to_string_lossy()
+                            .into_owned(),
+                    )
+                }
+            };
+            let what = cstr(ar.what).unwrap_or_default();
+            let line_defined = if ar.linedefined > 0 {
+                Some(ar.linedefined as i64)
+            } else {
+                None
+            };
+            // Lua chunks are loaded with a `=<name>` chunkname marker; mlua
+            // reports the bare name in `source`, so strip a single leading
+            // `=`/`@` for Lua/main functions. C functions keep their VM-reported
+            // source verbatim (e.g. `=[C]`), matching mlua.
+            let source = cstr(ar.source).map(|s| {
+                if (what == "Lua" || what == "main")
+                    && (s.starts_with('=') || s.starts_with('@'))
+                {
+                    s[1..].to_string()
+                } else {
+                    s
+                }
+            });
+            FunctionInfo {
+                name: cstr(ar.name),
+                source,
+                short_src: cstr(ar.short_src),
+                line_defined,
+                last_line_defined: None, // Luau does not report it.
+                what,
+                num_upvalues: ar.nupvals,
+                num_params: ar.nparams,
+                is_vararg: ar.isvararg != 0,
+            }
+        }
+    }
+}
+
+/// Debug information about a [`Function`]. Mirrors `mlua::debug::FunctionInfo`
+/// (the subset Luau reports).
+#[derive(Clone, Debug, Default)]
+pub struct FunctionInfo {
+    /// The function's name, if known (Luau records the call-site name).
+    pub name: Option<String>,
+    /// The chunk source name (e.g. `"=[C]"` for native functions).
+    pub source: Option<String>,
+    /// A short, human-readable source description.
+    pub short_src: Option<String>,
+    /// The line where the function was defined, if it is a Lua function.
+    pub line_defined: Option<i64>,
+    /// The last line of the function's definition. Always `None` in Luau.
+    pub last_line_defined: Option<i64>,
+    /// `"Lua"`, `"C"`, or `"main"`.
+    pub what: String,
+    /// The number of upvalues.
+    pub num_upvalues: u8,
+    /// The number of fixed parameters.
+    pub num_params: u8,
+    /// Whether the function is variadic.
+    pub is_vararg: bool,
 }
 
 impl std::fmt::Debug for Function {

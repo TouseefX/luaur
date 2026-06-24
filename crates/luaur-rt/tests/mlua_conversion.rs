@@ -1,9 +1,10 @@
 // Adapted from mlua (https://github.com/mlua-rs/mlua), MIT License,
 // © 2019 Aleksandr Orlenko / mlua authors. See tests/ATTRIBUTION.md.
 //
-// Dropped (deferred / out-of-scope luaur-rt features):
-//   - RegistryKey conversions (create_registry_value / registry_value)
-//   - Thread / AnyUserData typed read-back (UserDataRef) conversions
+// Re-enabled in Phase 1: RegistryKey conversions, Thread conversions, and
+// AnyUserData typed read-back.
+//
+// Still dropped (deferred / out-of-scope luaur-rt features):
 //   - Either<L, R>, BorrowedStr, BorrowedBytes, BString, OsString, PathBuf
 //   - `lua.convert` / `lua.unpack` helpers (we use FromLua/IntoLua directly)
 //   - buffer-based conversions (luau buffer deferred)
@@ -11,7 +12,9 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::ffi::CString;
 
-use luaur_rt::{Error, FromLua, Function, IntoLua, Lua, Result, Table, Value};
+use luaur_rt::{
+    AnyUserData, Error, FromLua, Function, IntoLua, Lua, RegistryKey, Result, Table, Thread, Value,
+};
 
 #[test]
 fn test_value_into_lua() -> Result<()> {
@@ -108,6 +111,128 @@ fn test_function_from_lua() -> Result<()> {
         }
         _ => panic!("expected `Error::FromLuaConversionError`"),
     }
+
+    Ok(())
+}
+
+#[test]
+fn test_thread_into_lua() -> Result<()> {
+    let lua = Lua::new();
+
+    // Direct conversion
+    let f = lua.create_function(|_, ()| Ok::<_, Error>(()))?;
+    let th = lua.create_thread(f)?;
+    let th2 = (&th).into_lua(&lua)?;
+    assert_eq!(&th, th2.as_thread().unwrap());
+
+    // Push into stack
+    let table = lua.create_table();
+    table.set("th", &th)?;
+    assert_eq!(th, table.get::<Thread>("th")?);
+
+    Ok(())
+}
+
+#[test]
+fn test_thread_from_lua() -> Result<()> {
+    let lua = Lua::new();
+
+    match lua.globals().get::<Thread>("print") {
+        Err(err @ Error::FromLuaConversionError { .. }) => {
+            // DEVIATION: luaur-rt's conversion errors use the Rust type name
+            // (`Thread`) rather than the lowercase Lua type name mlua uses.
+            assert_eq!(err.to_string(), "error converting Lua function to Thread");
+        }
+        _ => panic!("expected `Error::FromLuaConversionError`"),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_anyuserdata_into_lua() -> Result<()> {
+    // Adapted from mlua's `test_anyuserdata_into_lua`: luaur-rt wraps a typed
+    // `UserData` value (we don't have `create_any_userdata` for arbitrary `T`),
+    // and reads it back with `AnyUserData::borrow` rather than `UserDataRef`.
+    use luaur_rt::{UserData, UserDataMethods};
+
+    struct Stored(String);
+    impl UserData for Stored {
+        fn add_methods<M: UserDataMethods<Self>>(_m: &mut M) {}
+    }
+
+    let lua = Lua::new();
+
+    // Direct conversion
+    let ud = lua.create_userdata(Stored(String::from("hello")))?;
+    let ud2 = (&ud).into_lua(&lua)?;
+    assert_eq!(&ud, ud2.as_userdata().unwrap());
+
+    // Push into stack
+    let table = lua.create_table();
+    table.set("ud", &ud)?;
+    assert_eq!(ud, table.get::<AnyUserData>("ud")?);
+    assert_eq!("hello", table.get::<AnyUserData>("ud")?.borrow::<Stored>()?.0);
+
+    Ok(())
+}
+
+#[test]
+fn test_anyuserdata_from_lua() -> Result<()> {
+    let lua = Lua::new();
+
+    match lua.globals().get::<AnyUserData>("print") {
+        Err(err @ Error::FromLuaConversionError { .. }) => {
+            // DEVIATION: luaur-rt uses the Rust type name `AnyUserData`.
+            assert_eq!(err.to_string(), "error converting Lua function to AnyUserData");
+        }
+        _ => panic!("expected `Error::FromLuaConversionError`"),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_registry_value_into_lua() -> Result<()> {
+    let lua = Lua::new();
+
+    // Direct conversion
+    let s = lua.create_string("hello, world");
+    let r = lua.create_registry_value(&s)?;
+    let value1 = lua.pack(&r)?;
+    let value2 = lua.pack(r)?;
+    assert_eq!(value1.to_string()?, "hello, world");
+    assert_eq!(value1.to_pointer(), value2.to_pointer());
+
+    // Push into stack
+    let t = lua.create_table();
+    let r = lua.create_registry_value(&t)?;
+    let f = lua.create_function(|_, (t, k, v): (Table, Value, Value)| t.set(k, v))?;
+    f.call::<()>((&r, "hello", "world"))?;
+    f.call::<()>((r, "welcome", "to the jungle"))?;
+    assert_eq!(t.get::<String>("hello")?, "world");
+    assert_eq!(t.get::<String>("welcome")?, "to the jungle");
+
+    // Try to set nil registry key
+    let r_nil = lua.create_registry_value(Value::Nil)?;
+    t.set("hello", &r_nil)?;
+    assert_eq!(t.get::<Value>("hello")?, Value::Nil);
+
+    // Check non-owned registry key
+    let lua2 = Lua::new();
+    let r2 = lua2.create_registry_value("abc")?;
+    assert!(matches!(f.call::<()>(&r2), Err(Error::MismatchedRegistryKey)));
+
+    Ok(())
+}
+
+#[test]
+fn test_registry_key_from_lua() -> Result<()> {
+    let lua = Lua::new();
+
+    let fkey = lua.load("function() return 1 end").eval::<RegistryKey>()?;
+    let f = lua.registry_value::<Function>(&fkey)?;
+    assert_eq!(f.call::<i32>(())?, 1);
 
     Ok(())
 }

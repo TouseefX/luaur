@@ -1,26 +1,28 @@
-//! [`UserData`] / [`UserDataMethods`] and the [`AnyUserData`] handle.
-//! Mirrors `mlua::UserData` / `mlua::UserDataMethods` / `mlua::AnyUserData`.
+//! [`UserData`] / [`UserDataMethods`] / [`UserDataFields`] and the
+//! [`AnyUserData`] handle. Mirrors `mlua::UserData` / `mlua::UserDataMethods` /
+//! `mlua::UserDataFields` / `mlua::AnyUserData`.
 //!
 //! ## Implementation
 //!
-//! A `T: UserData` value is boxed into a Lua userdata as `RefCell<T>` (via
-//! [`lua_newuserdatadtor`], whose destructor drops the cell). Each registered
-//! method is compiled into a Rust closure that:
-//!   - takes the userdata as the first Lua argument (`self`),
-//!   - recovers `&RefCell<T>` from the userdata pointer,
-//!   - borrows (`add_method`) or mutably borrows (`add_method_mut`) it,
-//!   - calls the user method with the remaining arguments.
+//! A `T: UserData` value is boxed into a Lua userdata as a typed wrapper
+//! [`UserDataCell<T>`] = `{ type_id, RefCell<Option<T>> }` (via
+//! [`lua_newuserdatadtor`], whose destructor drops the cell). The leading
+//! `TypeId` makes Rust-side typed read-back **sound**: every accessor
+//! ([`AnyUserData::borrow`], [`borrow_mut`](AnyUserData::borrow_mut),
+//! [`take`](AnyUserData::take), [`is`](AnyUserData::is)) reads the stored
+//! `TypeId` from the userdata pointer and compares it with `TypeId::of::<T>()`
+//! before downcasting — a mismatch is an [`Error::UserDataTypeMismatch`].
+//! `take` replaces the `Option<T>` with `None`; subsequent access reports
+//! [`Error::UserDataDestructed`].
 //!
-//! These closures are wired into a per-instance metatable: ordinary methods go
-//! into a `__index` sub-table (so `obj:method()` resolves), `__meta` methods
-//! (e.g. `__add`) go directly on the metatable.
-//!
-//! ### Deviations from mlua
-//! `UserDataFields` (field getters/setters via `__index`/`__newindex`
-//! functions) is **deferred** — see the crate docs. `AnyUserData::borrow` for
-//! typed read-back from Rust is also deferred; the v1 surface focuses on
-//! constructing userdata and using it *from Lua*.
+//! Each registered method/field is compiled into a Rust closure wired into a
+//! per-instance metatable:
+//!   - ordinary methods go into a method table,
+//!   - field getters/setters are dispatched by an `__index`/`__newindex`
+//!     function (only when fields are registered),
+//!   - meta-methods (e.g. `__add`) go directly on the metatable.
 
+use std::any::TypeId;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -29,14 +31,17 @@ use crate::callback::{create_callback_function, BoxedCallback};
 use crate::error::{Error, Result};
 use crate::ffi::*;
 use crate::state::{Lua, LuaRef};
-use crate::traits::{FromLuaMulti, IntoLua, IntoLuaMulti};
+use crate::traits::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};
 use crate::value::Value;
 
 /// A Rust type that can be exposed to Lua as userdata.
 ///
-/// Mirrors `mlua::UserData`. Implement [`UserData::add_methods`] to register
-/// methods and meta-methods.
+/// Mirrors `mlua::UserData`. Implement [`UserData::add_methods`] and/or
+/// [`UserData::add_fields`] to register the surface visible from Lua.
 pub trait UserData: Sized {
+    /// Register fields (getters/setters). Default: none.
+    fn add_fields<F: UserDataFields<Self>>(_fields: &mut F) {}
+
     /// Register methods and meta-methods. Default: none.
     fn add_methods<M: UserDataMethods<Self>>(_methods: &mut M) {}
 }
@@ -66,18 +71,64 @@ pub trait UserDataMethods<T> {
         A: FromLuaMulti,
         R: IntoLuaMulti;
 
-    /// Register a meta-method (e.g. `"__add"`, `"__tostring"`); receives `&T`.
+    /// Register a meta-method (e.g. `MetaMethod::Add`, `"__tostring"`);
+    /// receives `&T`.
     fn add_meta_method<M, A, R>(&mut self, name: impl Into<String>, method: M)
     where
         M: Fn(&Lua, &T, A) -> Result<R> + 'static,
         A: FromLuaMulti,
         R: IntoLuaMulti;
+
+    /// Register a meta-method receiving `&mut T`.
+    fn add_meta_method_mut<M, A, R>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &mut T, A) -> Result<R> + 'static,
+        A: FromLuaMulti,
+        R: IntoLuaMulti;
+}
+
+/// Registrar passed to [`UserData::add_fields`].
+///
+/// Mirrors `mlua::UserDataFields`. Field getters/setters are dispatched by the
+/// userdata's `__index`/`__newindex`.
+pub trait UserDataFields<T> {
+    /// Register a constant field value (read-only).
+    fn add_field<V>(&mut self, name: impl Into<String>, value: V)
+    where
+        V: IntoLua + Clone + 'static;
+
+    /// Register a field whose getter receives `&T`.
+    fn add_field_method_get<M, R>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &T) -> Result<R> + 'static,
+        R: IntoLua;
+
+    /// Register a field whose setter receives `&mut T` and the assigned value.
+    fn add_field_method_set<M, A>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &mut T, A) -> Result<()> + 'static,
+        A: FromLua;
+
+    /// Register a field whose getter receives the [`AnyUserData`] handle.
+    fn add_field_function_get<F, R>(&mut self, name: impl Into<String>, function: F)
+    where
+        F: Fn(&Lua, AnyUserData) -> Result<R> + 'static,
+        R: IntoLua;
+
+    /// Register a field whose setter receives the [`AnyUserData`] handle and
+    /// the assigned value.
+    fn add_field_function_set<F, A>(&mut self, name: impl Into<String>, function: F)
+    where
+        F: Fn(&Lua, AnyUserData, A) -> Result<()> + 'static,
+        A: FromLua;
 }
 
 /// A handle to an arbitrary Lua userdata value.
 ///
-/// Mirrors `mlua::AnyUserData`. v1 exposes construction + use-from-Lua;
-/// typed Rust-side borrowing is deferred.
+/// Mirrors `mlua::AnyUserData`. Supports construction, use-from-Lua, and typed
+/// Rust-side borrowing ([`borrow`](AnyUserData::borrow) /
+/// [`borrow_mut`](AnyUserData::borrow_mut) / [`take`](AnyUserData::take) /
+/// [`is`](AnyUserData::is)).
 #[derive(Clone)]
 pub struct AnyUserData {
     pub(crate) reference: Rc<LuaRef>,
@@ -124,6 +175,163 @@ impl AnyUserData {
             Ok(eq != 0)
         }
     }
+
+    /// Recover a `&UserDataCell<T>` from the userdata storage, checking the
+    /// embedded `TypeId`. Returns `UserDataTypeMismatch` if the concrete type
+    /// differs.
+    fn cell<T: 'static>(&self) -> Result<&UserDataCell<T>> {
+        let state = self.reference.state();
+        unsafe {
+            self.reference.push();
+            let ptr = lua_touserdata(state, -1);
+            lua_pop(state, 1);
+            if ptr.is_null() {
+                return Err(Error::UserDataTypeMismatch);
+            }
+            // The wrapper stores the TypeId first; check it before downcasting.
+            let header = &*(ptr as *const UserDataHeader);
+            if header.type_id != TypeId::of::<T>() {
+                return Err(Error::UserDataTypeMismatch);
+            }
+            Ok(&*(ptr as *const UserDataCell<T>))
+        }
+    }
+
+    /// Whether the stored value is of concrete type `T`. Mirrors
+    /// `mlua::AnyUserData::is`. Returns `false` after the value has been taken.
+    pub fn is<T: 'static>(&self) -> bool {
+        match self.cell::<T>() {
+            Ok(cell) => cell.cell.borrow().is_some(),
+            Err(_) => false,
+        }
+    }
+
+    /// The [`TypeId`] of the stored value, if it is a luaur-rt userdata.
+    /// Mirrors `mlua::AnyUserData::type_id` (here it returns the concrete
+    /// `TypeId` whenever the userdata carries a luaur-rt wrapper header).
+    pub fn type_id(&self) -> Option<TypeId> {
+        let state = self.reference.state();
+        unsafe {
+            self.reference.push();
+            let ptr = lua_touserdata(state, -1);
+            lua_pop(state, 1);
+            if ptr.is_null() {
+                return None;
+            }
+            // Only luaur-rt userdata carry a header; raw VM userdata do not, but
+            // every userdata this crate creates does.
+            let header = &*(ptr as *const UserDataHeader);
+            Some(header.type_id)
+        }
+    }
+
+    /// Immutably borrow the stored value as `T`. Mirrors
+    /// `mlua::AnyUserData::borrow`. Errors with [`Error::UserDataTypeMismatch`]
+    /// on a type mismatch, [`Error::UserDataDestructed`] if it was taken, or
+    /// [`Error::UserDataBorrowError`] if already mutably borrowed.
+    pub fn borrow<T: 'static>(&self) -> Result<UserDataRef<'_, T>> {
+        let cell = self.cell::<T>()?;
+        let guard = cell
+            .cell
+            .try_borrow()
+            .map_err(|_| Error::UserDataBorrowError)?;
+        if guard.is_none() {
+            return Err(Error::UserDataDestructed);
+        }
+        Ok(UserDataRef {
+            guard,
+            _marker: PhantomData,
+        })
+    }
+
+    /// Mutably borrow the stored value as `T`. Mirrors
+    /// `mlua::AnyUserData::borrow_mut`.
+    pub fn borrow_mut<T: 'static>(&self) -> Result<UserDataRefMut<'_, T>> {
+        let cell = self.cell::<T>()?;
+        let guard = cell
+            .cell
+            .try_borrow_mut()
+            .map_err(|_| Error::UserDataBorrowMutError)?;
+        if guard.is_none() {
+            return Err(Error::UserDataDestructed);
+        }
+        Ok(UserDataRefMut {
+            guard,
+            _marker: PhantomData,
+        })
+    }
+
+    /// Take the stored value out of the userdata, leaving it destructed.
+    /// Mirrors `mlua::AnyUserData::take`. Errors with
+    /// [`Error::UserDataBorrowMutError`] if currently borrowed, or
+    /// [`Error::UserDataDestructed`] if already taken.
+    pub fn take<T: 'static>(&self) -> Result<T> {
+        let cell = self.cell::<T>()?;
+        let mut guard = cell
+            .cell
+            .try_borrow_mut()
+            .map_err(|_| Error::UserDataBorrowMutError)?;
+        guard.take().ok_or(Error::UserDataDestructed)
+    }
+}
+
+/// A RAII guard for an immutable userdata borrow ([`AnyUserData::borrow`]).
+/// Mirrors `mlua::UserDataRef`.
+pub struct UserDataRef<'a, T> {
+    guard: std::cell::Ref<'a, Option<T>>,
+    _marker: PhantomData<T>,
+}
+
+impl<T> std::ops::Deref for UserDataRef<'_, T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        // Invariant: `borrow` returns only when the option is `Some`.
+        self.guard.as_ref().expect("userdata destructed")
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for UserDataRef<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&**self, f)
+    }
+}
+
+impl<T: std::fmt::Display> std::fmt::Display for UserDataRef<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&**self, f)
+    }
+}
+
+/// A RAII guard for a mutable userdata borrow ([`AnyUserData::borrow_mut`]).
+/// Mirrors `mlua::UserDataRefMut`.
+pub struct UserDataRefMut<'a, T> {
+    guard: std::cell::RefMut<'a, Option<T>>,
+    _marker: PhantomData<T>,
+}
+
+impl<T> std::ops::Deref for UserDataRefMut<'_, T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        self.guard.as_ref().expect("userdata destructed")
+    }
+}
+
+impl<T> std::ops::DerefMut for UserDataRefMut<'_, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.guard.as_mut().expect("userdata destructed")
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for UserDataRefMut<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&**self, f)
+    }
+}
+
+impl<T: std::fmt::Display> std::fmt::Display for UserDataRefMut<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&**self, f)
+    }
 }
 
 impl std::fmt::Debug for AnyUserData {
@@ -145,6 +353,68 @@ impl IntoLua for AnyUserData {
     }
 }
 
+impl IntoLua for &AnyUserData {
+    fn into_lua(self, _lua: &Lua) -> Result<Value> {
+        Ok(Value::UserData(self.clone()))
+    }
+}
+
+impl FromLua for AnyUserData {
+    fn from_lua(value: Value, _lua: &Lua) -> Result<Self> {
+        match value {
+            Value::UserData(ud) => Ok(ud),
+            other => Err(Error::FromLuaConversionError {
+                from: other.type_name(),
+                to: "AnyUserData".to_string(),
+                message: None,
+            }),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Typed userdata storage
+// ---------------------------------------------------------------------------
+
+/// The fixed leading layout of every luaur-rt userdata wrapper. Reading the
+/// `TypeId` through this header (a prefix of [`UserDataCell<T>`]) lets us check
+/// the concrete type before downcasting. The two share `#[repr(C)]` so the
+/// `type_id` field is at the same offset for any `T`.
+#[repr(C)]
+struct UserDataHeader {
+    type_id: TypeId,
+}
+
+/// The typed userdata storage: a `TypeId` followed by the `RefCell<Option<T>>`.
+#[repr(C)]
+struct UserDataCell<T> {
+    type_id: TypeId,
+    cell: RefCell<Option<T>>,
+}
+
+/// Recover `&UserDataCell<T>` from a `self` userdata [`Value`] (Lua argument 1).
+fn recover_cell<'a, T: 'static>(lua: &Lua, value: &Value) -> Result<&'a UserDataCell<T>> {
+    match value {
+        Value::UserData(ud) => {
+            let state = lua.state();
+            unsafe {
+                ud.reference.push();
+                let ptr = lua_touserdata(state, -1);
+                lua_pop(state, 1);
+                if ptr.is_null() {
+                    return Err(Error::UserDataTypeMismatch);
+                }
+                let header = &*(ptr as *const UserDataHeader);
+                if header.type_id != TypeId::of::<T>() {
+                    return Err(Error::UserDataTypeMismatch);
+                }
+                Ok(&*(ptr as *const UserDataCell<T>))
+            }
+        }
+        _ => Err(Error::UserDataTypeMismatch),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Method collection
 // ---------------------------------------------------------------------------
@@ -157,40 +427,29 @@ struct Registered {
     callback: BoxedCallback,
 }
 
-/// Concrete [`UserDataMethods`] implementation that simply collects the
-/// type-erased callbacks; the metatable is built from this collection.
+/// A registered field getter or setter.
+struct FieldEntry {
+    name: String,
+    /// `true` if a getter, `false` if a setter.
+    is_get: bool,
+    callback: BoxedCallback,
+}
+
+/// Concrete [`UserDataMethods`] / [`UserDataFields`] implementation that
+/// collects the type-erased callbacks; the metatable is built from these.
 struct Collector<T> {
-    items: Vec<Registered>,
+    methods: Vec<Registered>,
+    fields: Vec<FieldEntry>,
     _phantom: PhantomData<T>,
 }
 
 impl<T> Collector<T> {
     fn new() -> Self {
         Collector {
-            items: Vec::new(),
+            methods: Vec::new(),
+            fields: Vec::new(),
             _phantom: PhantomData,
         }
-    }
-}
-
-/// Recover `&RefCell<T>` from the `self` userdata value (Lua argument 1).
-///
-/// Returns an error if the argument is not the expected userdata.
-fn recover_cell<'a, T: 'static>(lua: &Lua, value: &Value) -> Result<&'a RefCell<T>> {
-    match value {
-        Value::UserData(ud) => {
-            let state = lua.state();
-            unsafe {
-                ud.reference.push();
-                let ptr = lua_touserdata(state, -1);
-                lua_pop(state, 1);
-                if ptr.is_null() {
-                    return Err(Error::UserDataTypeMismatch);
-                }
-                Ok(&*(ptr as *const RefCell<T>))
-            }
-        }
-        _ => Err(Error::UserDataTypeMismatch),
     }
 }
 
@@ -205,11 +464,12 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
             let this = args.pop_front().unwrap_or(Value::Nil);
             let cell = recover_cell::<T>(lua, &this)?;
             let a = A::from_lua_multi(args, lua)?;
-            let borrowed = cell.borrow();
-            let r = method(lua, &borrowed, a)?;
+            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
+            let r = method(lua, data, a)?;
             r.into_lua_multi(lua)
         });
-        self.items.push(Registered {
+        self.methods.push(Registered {
             name: name.into(),
             is_meta: false,
             callback,
@@ -227,12 +487,14 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
             let cell = recover_cell::<T>(lua, &this)?;
             let a = A::from_lua_multi(args, lua)?;
             let mut borrowed = cell
+                .cell
                 .try_borrow_mut()
                 .map_err(|_| Error::UserDataBorrowMutError)?;
-            let r = method(lua, &mut borrowed, a)?;
+            let data = borrowed.as_mut().ok_or(Error::UserDataDestructed)?;
+            let r = method(lua, data, a)?;
             r.into_lua_multi(lua)
         });
-        self.items.push(Registered {
+        self.methods.push(Registered {
             name: name.into(),
             is_meta: false,
             callback,
@@ -250,7 +512,7 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
             let r = function(lua, a)?;
             r.into_lua_multi(lua)
         });
-        self.items.push(Registered {
+        self.methods.push(Registered {
             name: name.into(),
             is_meta: false,
             callback,
@@ -267,11 +529,37 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
             let this = args.pop_front().unwrap_or(Value::Nil);
             let cell = recover_cell::<T>(lua, &this)?;
             let a = A::from_lua_multi(args, lua)?;
-            let borrowed = cell.borrow();
-            let r = method(lua, &borrowed, a)?;
+            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
+            let r = method(lua, data, a)?;
             r.into_lua_multi(lua)
         });
-        self.items.push(Registered {
+        self.methods.push(Registered {
+            name: name.into(),
+            is_meta: true,
+            callback,
+        });
+    }
+
+    fn add_meta_method_mut<M, A, R>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &mut T, A) -> Result<R> + 'static,
+        A: FromLuaMulti,
+        R: IntoLuaMulti,
+    {
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let cell = recover_cell::<T>(lua, &this)?;
+            let a = A::from_lua_multi(args, lua)?;
+            let mut borrowed = cell
+                .cell
+                .try_borrow_mut()
+                .map_err(|_| Error::UserDataBorrowMutError)?;
+            let data = borrowed.as_mut().ok_or(Error::UserDataDestructed)?;
+            let r = method(lua, data, a)?;
+            r.into_lua_multi(lua)
+        });
+        self.methods.push(Registered {
             name: name.into(),
             is_meta: true,
             callback,
@@ -279,51 +567,200 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
     }
 }
 
-/// Destructor for the `RefCell<T>` stored inside the userdata.
+impl<T: 'static> UserDataFields<T> for Collector<T> {
+    fn add_field<V>(&mut self, name: impl Into<String>, value: V)
+    where
+        V: IntoLua + Clone + 'static,
+    {
+        let callback: BoxedCallback = Box::new(move |lua, _args| {
+            let v = value.clone().into_lua(lua)?;
+            v.into_lua_multi(lua)
+        });
+        self.fields.push(FieldEntry {
+            name: name.into(),
+            is_get: true,
+            callback,
+        });
+    }
+
+    fn add_field_method_get<M, R>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &T) -> Result<R> + 'static,
+        R: IntoLua,
+    {
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let cell = recover_cell::<T>(lua, &this)?;
+            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
+            let r = method(lua, data)?;
+            r.into_lua_multi(lua)
+        });
+        self.fields.push(FieldEntry {
+            name: name.into(),
+            is_get: true,
+            callback,
+        });
+    }
+
+    fn add_field_method_set<M, A>(&mut self, name: impl Into<String>, method: M)
+    where
+        M: Fn(&Lua, &mut T, A) -> Result<()> + 'static,
+        A: FromLua,
+    {
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let cell = recover_cell::<T>(lua, &this)?;
+            let val = A::from_lua(args.pop_front().unwrap_or(Value::Nil), lua)?;
+            let mut borrowed = cell
+                .cell
+                .try_borrow_mut()
+                .map_err(|_| Error::UserDataBorrowMutError)?;
+            let data = borrowed.as_mut().ok_or(Error::UserDataDestructed)?;
+            method(lua, data, val)?;
+            ().into_lua_multi(lua)
+        });
+        self.fields.push(FieldEntry {
+            name: name.into(),
+            is_get: false,
+            callback,
+        });
+    }
+
+    fn add_field_function_get<F, R>(&mut self, name: impl Into<String>, function: F)
+    where
+        F: Fn(&Lua, AnyUserData) -> Result<R> + 'static,
+        R: IntoLua,
+    {
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let ud = AnyUserData::from_lua(this, lua)?;
+            let r = function(lua, ud)?;
+            r.into_lua_multi(lua)
+        });
+        self.fields.push(FieldEntry {
+            name: name.into(),
+            is_get: true,
+            callback,
+        });
+    }
+
+    fn add_field_function_set<F, A>(&mut self, name: impl Into<String>, function: F)
+    where
+        F: Fn(&Lua, AnyUserData, A) -> Result<()> + 'static,
+        A: FromLua,
+    {
+        let callback: BoxedCallback = Box::new(move |lua, mut args| {
+            let this = args.pop_front().unwrap_or(Value::Nil);
+            let ud = AnyUserData::from_lua(this, lua)?;
+            let val = A::from_lua(args.pop_front().unwrap_or(Value::Nil), lua)?;
+            function(lua, ud, val)?;
+            ().into_lua_multi(lua)
+        });
+        self.fields.push(FieldEntry {
+            name: name.into(),
+            is_get: false,
+            callback,
+        });
+    }
+}
+
+/// Destructor for the [`UserDataCell<T>`] stored inside the userdata.
 unsafe extern "C" fn userdata_dtor<T>(ptr: *mut c_void) {
     if !ptr.is_null() {
-        unsafe { core::ptr::drop_in_place(ptr as *mut RefCell<T>) };
+        unsafe { core::ptr::drop_in_place(ptr as *mut UserDataCell<T>) };
     }
 }
 
 /// Build a userdata value wrapping `data`, with a metatable assembled from the
-/// type's [`UserData::add_methods`]. Implements [`Lua::create_userdata`].
+/// type's [`UserData::add_fields`] + [`UserData::add_methods`].
 pub(crate) fn create_userdata<T: UserData + 'static>(lua: &Lua, data: T) -> Result<AnyUserData> {
     let state = lua.state();
 
-    // 1. Collect methods/meta-methods.
+    // 1. Collect fields, methods, and meta-methods.
     let mut collector = Collector::<T>::new();
+    T::add_fields(&mut collector);
     T::add_methods(&mut collector);
 
-    // 2. Build the `__index` table of ordinary methods and a list of
-    //    meta-methods to set directly on the metatable.
-    let index_table = lua.create_table();
+    // 2. Build the method table + meta-methods, and the field getter/setter
+    //    tables (if any fields were registered).
+    let method_table = lua.create_table();
     let metatable = lua.create_table();
-    for item in collector.items {
+    for item in collector.methods {
         let func = create_callback_function(lua, item.callback)?;
         if item.is_meta {
             metatable.set(item.name, func)?;
         } else {
-            index_table.set(item.name, func)?;
+            method_table.set(item.name, func)?;
         }
     }
-    // metatable.__index = index_table
-    metatable.set("__index", index_table)?;
 
-    // 3. Allocate the userdata holding RefCell<T> and move `data` in.
+    let has_fields = !collector.fields.is_empty();
+    let getters = lua.create_table();
+    let setters = lua.create_table();
+    for field in collector.fields {
+        let func = create_callback_function(lua, field.callback)?;
+        if field.is_get {
+            getters.set(field.name, func)?;
+        } else {
+            setters.set(field.name, func)?;
+        }
+    }
+
+    if has_fields {
+        // __index dispatcher: try a field getter, then the method table.
+        let getters_c = getters.clone();
+        let methods_c = method_table.clone();
+        let index_fn = lua.create_function(move |_, (ud, key): (Value, Value)| {
+            let getter: Value = getters_c.get(key.clone())?;
+            if let Value::Function(f) = getter {
+                return f.call::<Value>(ud);
+            }
+            // Fall back to the method table.
+            let m: Value = methods_c.get(key)?;
+            Ok(m)
+        })?;
+        metatable.set("__index", index_fn)?;
+
+        // __newindex dispatcher: try a field setter, else raise.
+        let setters_c = setters.clone();
+        let newindex_fn =
+            lua.create_function(move |_, (ud, key, val): (Value, Value, Value)| {
+                let setter: Value = setters_c.get(key.clone())?;
+                if let Value::Function(f) = setter {
+                    f.call::<()>((ud, val))?;
+                    return Ok(());
+                }
+                let name = key.to_string().unwrap_or_default();
+                Err(Error::RuntimeError(format!(
+                    "attempt to set unknown field '{name}' on userdata"
+                )))
+            })?;
+        metatable.set("__newindex", newindex_fn)?;
+    } else {
+        // No fields: the metatable's __index is just the method table.
+        metatable.set("__index", method_table)?;
+    }
+
+    // 3. Allocate the userdata holding UserDataCell<T> and move `data` in.
     unsafe {
         let storage = lua_newuserdatadtor(
             state,
-            core::mem::size_of::<RefCell<T>>(),
+            core::mem::size_of::<UserDataCell<T>>(),
             Some(userdata_dtor::<T>),
         );
         if storage.is_null() {
             return Err(Error::runtime("luaur-rt: failed to allocate userdata"));
         }
-        core::ptr::write(storage as *mut RefCell<T>, RefCell::new(data));
+        core::ptr::write(
+            storage as *mut UserDataCell<T>,
+            UserDataCell {
+                type_id: TypeId::of::<T>(),
+                cell: RefCell::new(Some(data)),
+            },
+        );
 
         // 4. Set the metatable on the userdata (which is on top of stack).
-        //    push metatable, then setmetatable(-2).
         metatable.push_to_stack();
         lua_setmetatable(state, -2);
 

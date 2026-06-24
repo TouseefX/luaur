@@ -243,6 +243,12 @@ impl IntoLua for LuaString {
     }
 }
 
+impl IntoLua for &LuaString {
+    fn into_lua(self, _lua: &Lua) -> Result<Value> {
+        Ok(Value::String(self.clone()))
+    }
+}
+
 impl FromLua for LuaString {
     fn from_lua(value: Value, _lua: &Lua) -> Result<Self> {
         match value {
@@ -268,6 +274,12 @@ impl IntoLua for Table {
     }
 }
 
+impl IntoLua for &Table {
+    fn into_lua(self, _lua: &Lua) -> Result<Value> {
+        Ok(Value::Table(self.clone()))
+    }
+}
+
 impl FromLua for Table {
     fn from_lua(value: Value, _lua: &Lua) -> Result<Self> {
         match value {
@@ -284,6 +296,12 @@ impl FromLua for Table {
 impl IntoLua for Function {
     fn into_lua(self, _lua: &Lua) -> Result<Value> {
         Ok(Value::Function(self))
+    }
+}
+
+impl IntoLua for &Function {
+    fn into_lua(self, _lua: &Lua) -> Result<Value> {
+        Ok(Value::Function(self.clone()))
     }
 }
 

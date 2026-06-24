@@ -29,6 +29,9 @@ pub struct Chunk {
     pub(crate) lua: Lua,
     pub(crate) source: String,
     pub(crate) name: String,
+    /// Optional environment table applied to the loaded function. Mirrors the
+    /// per-chunk environment set by `mlua::Chunk::set_environment`.
+    pub(crate) environment: Option<crate::table::Table>,
 }
 
 impl Chunk {
@@ -37,6 +40,23 @@ impl Chunk {
     /// Mirrors `mlua::Chunk::set_name`.
     pub fn set_name(mut self, name: impl Into<String>) -> Self {
         self.name = name.into();
+        self
+    }
+
+    /// Set the environment (globals table) the loaded chunk runs in.
+    ///
+    /// Mirrors `mlua::Chunk::set_environment`. Applied to the function produced
+    /// by [`Chunk::into_function`] / [`Chunk::exec`] / [`Chunk::eval`].
+    pub fn set_environment(mut self, env: crate::table::Table) -> Self {
+        self.environment = Some(env);
+        self
+    }
+
+    /// The current chunk mode is always text here (luaur-rt loads source).
+    /// Mirrors `mlua::Chunk::set_mode` as a no-op accepting `mlua::ChunkMode`'s
+    /// role: luaur-rt auto-detects, so this is provided only for signature
+    /// parity and returns `self` unchanged.
+    pub fn set_mode(self, _mode: ChunkMode) -> Self {
         self
     }
 
@@ -92,7 +112,11 @@ impl Chunk {
                 // luau_load failure leaves an error message on the stack.
                 return Err(self.lua.pop_error(rc));
             }
-            Ok(Function::from_ref(self.lua.pop_ref()))
+            let func = Function::from_ref(self.lua.pop_ref());
+            if let Some(env) = &self.environment {
+                func.set_environment(env.clone())?;
+            }
+            Ok(func)
         }
     }
 
@@ -106,9 +130,35 @@ impl Chunk {
 
     /// Run the chunk and convert its return value(s) to `R`.
     ///
-    /// Mirrors `mlua::Chunk::eval`.
+    /// Mirrors `mlua::Chunk::eval`. Like the Lua REPL (and mlua), the source is
+    /// first tried as an *expression* (by prepending `return `); if that
+    /// compiles it is used, otherwise the chunk is run as a statement block.
+    /// This is what lets `lua.load("coroutine.create(f)").eval::<Thread>()` and
+    /// `lua.load("function() ... end").eval::<Function>()` work.
     pub fn eval<R: FromLuaMulti>(self) -> Result<R> {
+        // Try the expression form first.
+        let expr = Chunk {
+            lua: self.lua.clone(),
+            source: format!("return {}", self.source),
+            name: self.name.clone(),
+            environment: self.environment.clone(),
+        };
+        if let Ok(f) = expr.into_function() {
+            return f.call::<R>(());
+        }
+        // Fall back to statement-block mode.
         let f = self.into_function()?;
         f.call::<R>(())
     }
+}
+
+/// How a chunk's bytes are interpreted. Mirrors `mlua::ChunkMode`. luaur-rt
+/// always loads text source, so this exists for signature parity with
+/// [`Chunk::set_mode`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChunkMode {
+    /// Text source (the default and only supported mode here).
+    Text,
+    /// Precompiled bytecode (not supported by luaur-rt's high-level loader).
+    Binary,
 }

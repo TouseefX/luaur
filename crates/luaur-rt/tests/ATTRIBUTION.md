@@ -8,10 +8,15 @@ They have been ported to the `luaur-rt` API (the mlua-style, pure-Rust ergonomic
 surface over `luaur`/Luau) as a *behavioral compatibility proof*: where a test
 passes unchanged against `luaur-rt`, it demonstrates that `luaur-rt` matches
 mlua's observable behavior. Tests that exercise mlua features `luaur-rt` has
-intentionally deferred (async, threads/coroutines, scopes, `RegistryKey`,
-`UserDataFields`, serde, buffers, vectors, memory limits, the proc-macro
-`chunk!`, etc.) were dropped, and tests that hit a documented `luaur-rt`
+intentionally deferred were dropped, and tests that hit a documented `luaur-rt`
 deviation were adapted with a `// DEVIATION:` note.
+
+Phase 1 added behavioral coverage for threads/coroutines (`tests/mlua_thread.rs`),
+`RegistryKey`, `UserDataFields`, typed `AnyUserData` read-back
+(`borrow`/`borrow_mut`/`take`/`is`/`type_id`), the `MetaMethod` enum, and
+`Function::info`/`environment`. Still deferred (later phases): async, scopes,
+serde, buffers, vectors, `Send`/`Sync`, the proc-macro `chunk!`, and
+`#[derive(UserData)]`.
 
 ## Adapted files
 
@@ -22,6 +27,7 @@ deviation were adapted with a `// DEVIATION:` note.
 | `tests/mlua_value.rs`      | `tests/value.rs`      |
 | `tests/mlua_conversion.rs` | `tests/conversion.rs` |
 | `tests/mlua_userdata.rs`   | `tests/userdata.rs`   |
+| `tests/mlua_thread.rs`     | `tests/thread.rs`     |
 | `tests/mlua_string.rs`     | `tests/string.rs`     |
 | `tests/mlua_error.rs`      | `tests/error.rs`      |
 | `tests/mlua_multi.rs`      | `tests/multi.rs`      |

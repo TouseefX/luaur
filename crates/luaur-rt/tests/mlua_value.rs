@@ -1,12 +1,14 @@
 // Adapted from mlua (https://github.com/mlua-rs/mlua), MIT License,
 // © 2019 Aleksandr Orlenko / mlua authors. See tests/ATTRIBUTION.md.
 //
-// Dropped / trimmed (deferred or non-Luau-applicable luaur-rt features):
+// Re-enabled in Phase 1: `Value::Thread` (coroutine values) — equality and
+// to_pointer behavior.
+//
+// Still dropped / trimmed (deferred or non-Luau-applicable luaur-rt features):
 //   - LightUserData / Value::NULL                (no light-userdata support)
-//   - Value::Vector / Value::Buffer / Value::Thread / Value::Other
+//   - Value::Vector / Value::Buffer / Value::Other
 //   - register_userdata_type / create_any_userdata typed read-back, __todebug
 //   - test_value_exhaustive_match (mlua's full variant set)
-//   - coroutine.create-based comparisons (threads deferred)
 
 use luaur_rt::{Error, Lua, MultiValue, Result, UserData, Value};
 
@@ -31,6 +33,9 @@ fn test_value_eq() -> Result<()> {
         func1 = function() end
         func2 = func1
         func3 = function() end
+        thread1 = coroutine.create(function() end)
+        thread2 = thread1
+        thread3 = coroutine.create(function() end)
     "#,
     )
     .exec()?;
@@ -45,6 +50,9 @@ fn test_value_eq() -> Result<()> {
     let func1: Value = globals.get("func1")?;
     let func2: Value = globals.get("func2")?;
     let func3: Value = globals.get("func3")?;
+    let thread1: Value = globals.get("thread1")?;
+    let thread2: Value = globals.get("thread2")?;
+    let thread3: Value = globals.get("thread3")?;
 
     assert!(table1 != table2); // distinct objects (reference identity)
     assert!(table1.equals(&table2)?); // shared `__eq` => values match
@@ -56,6 +64,10 @@ fn test_value_eq() -> Result<()> {
     assert!(func1 == func2);
     assert!(func1 != func3);
     assert!(!func1.equals(&func3)?);
+    assert!(thread1.is_thread());
+    assert!(thread1 == thread2); // same coroutine object
+    assert!(thread1.equals(&thread2)?);
+    assert!(thread1 != thread3); // distinct coroutine objects
 
     // Pointer identity behavior.
     assert!(!table1.to_pointer().is_null());
@@ -97,6 +109,7 @@ fn test_value_to_pointer() -> Result<()> {
         mystring = "hello"
         mynum = 1
         myfunc = function() end
+        mythread = coroutine.create(function() end)
     "#,
     )
     .exec()?;
@@ -105,6 +118,7 @@ fn test_value_to_pointer() -> Result<()> {
     let string: Value = globals.get("mystring")?;
     let num: Value = globals.get("mynum")?;
     let func: Value = globals.get("myfunc")?;
+    let thread: Value = globals.get("mythread")?;
     let ud: Value = {
         struct U;
         impl UserData for U {}
@@ -115,6 +129,7 @@ fn test_value_to_pointer() -> Result<()> {
     assert!(!string.to_pointer().is_null());
     assert!(num.to_pointer().is_null());
     assert!(!func.to_pointer().is_null());
+    assert!(!thread.to_pointer().is_null());
     assert!(!ud.to_pointer().is_null());
 
     Ok(())

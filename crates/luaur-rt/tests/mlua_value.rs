@@ -3,14 +3,18 @@
 //
 // Re-enabled in Phase 1: `Value::Thread` (coroutine values) — equality and
 // to_pointer behavior.
+// Re-enabled in Phase 2: `Value::Vector` and `Value::Buffer` — type_name,
+// to_pointer (buffer is a GC object => non-null; vector is an inline value type
+// => null), and equality (vector by value, buffer by object identity). See
+// `test_value_vector_buffer` below.
 //
 // Still dropped / trimmed (deferred or non-Luau-applicable luaur-rt features):
 //   - LightUserData / Value::NULL                (no light-userdata support)
-//   - Value::Vector / Value::Buffer / Value::Other
+//   - Value::Other
 //   - register_userdata_type / create_any_userdata typed read-back, __todebug
 //   - test_value_exhaustive_match (mlua's full variant set)
 
-use luaur_rt::{Error, Lua, MultiValue, Result, UserData, Value};
+use luaur_rt::{Error, Lua, MultiValue, Result, UserData, Value, Vector};
 
 #[test]
 fn test_value_eq() -> Result<()> {
@@ -212,6 +216,40 @@ fn test_value_conversions() -> Result<()> {
             .to_string(),
         "runtime error: some error"
     );
+
+    Ok(())
+}
+
+#[test]
+fn test_value_vector_buffer() -> Result<()> {
+    let lua = Lua::new();
+
+    // --- Vector (inline value type) ---
+    let vec = Value::Vector(Vector::new(1.0, 2.0, 3.0));
+    assert!(vec.is_vector());
+    assert_eq!(vec.type_name(), "vector");
+    assert_eq!(vec.as_vector().unwrap(), &Vector::new(1.0, 2.0, 3.0));
+    // Vectors are inline values: no pointer identity.
+    assert!(vec.to_pointer().is_null());
+    // Equality is component-wise.
+    assert_eq!(vec, Value::Vector(Vector::new(1.0, 2.0, 3.0)));
+    assert_ne!(vec, Value::Vector(Vector::new(1.0, 2.0, 4.0)));
+    // `tostring` of a vector renders its components.
+    assert_eq!(vec.to_string()?, "vector(1, 2, 3)");
+
+    // --- Buffer (GC reference type) ---
+    let buf = lua.create_buffer(b"hello")?;
+    let bval = Value::Buffer(buf.clone());
+    assert!(bval.is_buffer());
+    assert_eq!(bval.type_name(), "buffer");
+    // Buffers are GC objects: non-null pointer identity.
+    assert!(!bval.to_pointer().is_null());
+    // Equality is by object identity, not byte content.
+    assert_eq!(bval, Value::Buffer(buf));
+    let other = lua.create_buffer(b"hello")?;
+    assert_ne!(bval, Value::Buffer(other)); // same bytes, distinct objects
+    // `tostring` of a buffer is the Luau `buffer: 0x...` form.
+    assert!(bval.to_string()?.starts_with("buffer:"));
 
     Ok(())
 }

@@ -246,6 +246,40 @@ impl Lua {
         crate::userdata::create_userdata(self, data)
     }
 
+    /// Creates and returns a Luau [buffer] object from a byte slice of data.
+    ///
+    /// Mirrors `mlua::Lua::create_buffer`.
+    ///
+    /// [buffer]: https://luau.org/library#buffer-library
+    pub fn create_buffer(&self, data: impl AsRef<[u8]>) -> Result<crate::buffer::Buffer> {
+        let data = data.as_ref();
+        let buffer = self.create_buffer_with_capacity(data.len())?;
+        if !data.is_empty() {
+            buffer.write_bytes(0, data);
+        }
+        Ok(buffer)
+    }
+
+    /// Creates and returns a Luau [buffer] object with the specified size.
+    ///
+    /// Size limit is 1GB. All bytes are initialized to zero. Exceeding the
+    /// limit returns a `RuntimeError` carrying a `"memory allocation error"`
+    /// message (matching mlua).
+    ///
+    /// Mirrors `mlua::Lua::create_buffer_with_capacity`.
+    ///
+    /// [buffer]: https://luau.org/library#buffer-library
+    pub fn create_buffer_with_capacity(&self, size: usize) -> Result<crate::buffer::Buffer> {
+        crate::buffer::create_buffer_with_capacity(self, size)
+    }
+
+    /// Creates and returns a Luau [`Vector`](crate::Vector) value.
+    ///
+    /// Mirrors `mlua::Lua::create_vector`. luaur is a 3-wide vector build.
+    pub fn create_vector(&self, x: f32, y: f32, z: f32) -> crate::vector::Vector {
+        crate::vector::Vector::new(x, y, z)
+    }
+
     /// Load a chunk of Lua source for execution.
     ///
     /// Mirrors `mlua::Lua::load`. Returns a [`Chunk`]; finalize with

@@ -319,6 +319,58 @@ impl FromLua for Function {
 }
 
 // ---------------------------------------------------------------------------
+// Vector (Luau) <-> Value::Vector
+// ---------------------------------------------------------------------------
+
+impl IntoLua for crate::Vector {
+    fn into_lua(self, _lua: &Lua) -> Result<Value> {
+        Ok(Value::Vector(self))
+    }
+}
+
+impl FromLua for crate::Vector {
+    fn from_lua(value: Value, _lua: &Lua) -> Result<Self> {
+        match value {
+            Value::Vector(v) => Ok(v),
+            other => Err(Error::FromLuaConversionError {
+                from: other.type_name(),
+                to: "vector".to_string(),
+                message: None,
+            }),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Buffer (Luau) <-> Value::Buffer
+// ---------------------------------------------------------------------------
+
+impl IntoLua for crate::Buffer {
+    fn into_lua(self, _lua: &Lua) -> Result<Value> {
+        Ok(Value::Buffer(self))
+    }
+}
+
+impl IntoLua for &crate::Buffer {
+    fn into_lua(self, _lua: &Lua) -> Result<Value> {
+        Ok(Value::Buffer(self.clone()))
+    }
+}
+
+impl FromLua for crate::Buffer {
+    fn from_lua(value: Value, _lua: &Lua) -> Result<Self> {
+        match value {
+            Value::Buffer(buf) => Ok(buf),
+            other => Err(Error::FromLuaConversionError {
+                from: other.type_name(),
+                to: "buffer".to_string(),
+                message: None,
+            }),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Option<T>
 // ---------------------------------------------------------------------------
 
@@ -401,6 +453,26 @@ impl<T: IntoLua, const N: usize> IntoLua for [T; N] {
 
 impl<T: FromLua, const N: usize> FromLua for [T; N] {
     fn from_lua(value: Value, lua: &Lua) -> Result<Self> {
+        // A Luau vector converts to an array of its components (matching mlua:
+        // `let v: [f64; 3] = lua.load("vector.create(1,2,3)").eval()?`).
+        if let Value::Vector(v) = value {
+            if N == crate::Vector::SIZE {
+                let x = T::from_lua(Value::Number(v.x() as f64), lua)?;
+                let y = T::from_lua(Value::Number(v.y() as f64), lua)?;
+                let z = T::from_lua(Value::Number(v.z() as f64), lua)?;
+                let comps = vec![x, y, z];
+                return <[T; N]>::try_from(comps).map_err(|_| Error::FromLuaConversionError {
+                    from: "vector",
+                    to: format!("[T; {N}]"),
+                    message: None,
+                });
+            }
+            return Err(Error::FromLuaConversionError {
+                from: "vector",
+                to: format!("[T; {N}]"),
+                message: Some(format!("expected array of length {}, got {N}", crate::Vector::SIZE)),
+            });
+        }
         let vec: Vec<T> = Vec::from_lua(value, lua)?;
         let len = vec.len();
         <[T; N]>::try_from(vec).map_err(|_| Error::FromLuaConversionError {

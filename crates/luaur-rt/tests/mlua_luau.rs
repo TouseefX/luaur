@@ -2,20 +2,98 @@
 // © 2019 Aleksandr Orlenko / mlua authors. See tests/ATTRIBUTION.md.
 //
 // Only the Luau-relevant, non-deferred subset of mlua's `tests/luau.rs` is
-// ported. Dropped (deferred / out-of-scope luaur-rt features):
-//   - Vector / vector library tests, Compiler tests, Buffer tests
+// ported.
+//
+// Phase 2 added the Luau-specific runtime types: the **vector** tests below,
+// and **buffer** coverage in its own file (`tests/mlua_buffer.rs`, ported
+// verbatim from mlua's `tests/buffer.rs`).
+//
+// Still dropped (each needs luaur-rt API surface from a later phase):
+//   - `test_vectors` *fastcall* half, `test_vector_metatable`
+//                                  -> need `Compiler` / `Chunk::set_compiler` /
+//                                     `set_vector_ctor`/`set_vector_type` /
+//                                     `Lua::set_type_metatable`.
 //   - sandbox / sandbox_safeenv / sandbox_nolibs / sandbox_threads
-//   - interrupts, fflags (Lua::set_fflag), memory categories, heap dumps
-//   - integer64 type, typeof(error-value) (luaur-rt carries `Value::Error` as a
-//     string, so `typeof` would report "string"; the error-tagged value path is
-//     deferred).
+//                                  -> need `Lua::sandbox` / `Thread::sandbox` /
+//                                     `Globals::set_safeenv`.
+//   - interrupts                   -> need `set_interrupt` / `VmState`.
+//   - fflags                       -> need `Lua::set_fflag`.
+//   - memory categories, heap dumps-> need the memory-category / heap-dump API.
+//   - integer64 type               -> needs `LuauIntegerType2` + `42i` literals.
+//   - typeof(error-value)          -> luaur-rt carries `Value::Error` as a
+//                                     string, so `typeof` reports "string".
+//   - loadstring                   -> not registered by luaur's base library
+//                                     (see `test_load_from_rust` for the analog).
+//   - `mod require`                -> the `require` submodule (path resolution).
 
-use luaur_rt::{Error, Lua, Result, Table, Value};
+use luaur_rt::{Error, Lua, Result, Table, Value, Vector};
 
 #[test]
 fn test_version() -> Result<()> {
     let lua = Lua::new();
+    // DEVIATION: luaur's VM reports `_VERSION` as the bare string `"Luau"` (no
+    // trailing ` 0.<minor>` like upstream/mlua's bundled Luau), so this checks
+    // the `"Luau"` prefix rather than `"Luau 0."`. The API surface exercised
+    // (`globals().get::<String>`) is unchanged.
     assert!(lua.globals().get::<String>("_VERSION")?.starts_with("Luau"));
+    Ok(())
+}
+
+#[test]
+fn test_vectors() -> Result<()> {
+    let lua = Lua::new();
+
+    let v: Vector = lua
+        .load("vector.create(1, 2, 3) + vector.create(3, 2, 1)")
+        .eval()?;
+    assert_eq!(v, [4.0, 4.0, 4.0]);
+
+    // Test conversion into Rust array
+    let v: [f64; 3] = lua.load("vector.create(1, 2, 3)").eval()?;
+    assert!(v == [1.0, 2.0, 3.0]);
+
+    // Test vector methods
+    lua.load(
+        r#"
+        local v = vector.create(1, 2, 3)
+        assert(v.x == 1)
+        assert(v.y == 2)
+        assert(v.z == 3)
+    "#,
+    )
+    .exec()?;
+
+    // SKIPPED (later phase): mlua's `test_vectors` second half drives a
+    // `Compiler::new().set_vector_ctor("vector")` fastcall path. `Compiler` /
+    // `Chunk::set_compiler` are not yet part of luaur-rt's surface.
+
+    Ok(())
+}
+
+#[test]
+fn test_vector_roundtrip() -> Result<()> {
+    // Additional Luau-vector coverage (not in mlua's luau.rs): round-trip a
+    // `Vector` built on the Rust side through Lua and back, exercising
+    // `Lua::create_vector`, the component accessors, `IntoLua`/`FromLua`, and
+    // `Value::Vector` equality in both directions.
+    let lua = Lua::new();
+
+    let v = lua.create_vector(1.5, -2.0, 3.25);
+    assert_eq!(v.x(), 1.5);
+    assert_eq!(v.y(), -2.0);
+    assert_eq!(v.z(), 3.25);
+
+    let echo = lua.create_function(|_, v: Vector| Ok(v))?;
+    let back: Vector = echo.call(v)?;
+    assert_eq!(back, v);
+    assert_eq!(back, [1.5, -2.0, 3.25]);
+
+    // A vector passed in from Rust is observable as the Luau `vector` type.
+    let described: String = lua
+        .create_function(|_, v: Vector| Ok(format!("{},{},{}", v.x(), v.y(), v.z())))?
+        .call(lua.create_vector(4.0, 5.0, 6.0))?;
+    assert_eq!(described, "4,5,6");
+
     Ok(())
 }
 

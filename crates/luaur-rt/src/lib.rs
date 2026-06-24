@@ -39,7 +39,7 @@
 //! are noted here rather than implemented:
 //!
 //! - `Scope` (P3) and `async` support (P4).
-//! - `serde` integration (P4), `Buffer` and vector userdata helpers (P2).
+//! - `serde` integration (P4).
 //! - Multi-VM `Send`/`Sync` (`WeakLua`, send-able handles) (P4).
 //! - Thread event callbacks (`ThreadEvent`/`ThreadTriggers`/
 //!   `set_thread_event_callback`) and per-thread hooks.
@@ -48,9 +48,14 @@
 //! Implemented in Phase 1: `Thread`/coroutine wrappers, public `RegistryKey`
 //! storage, `UserDataFields`, typed `AnyUserData::borrow`/`borrow_mut`/`take`/
 //! `is`, the `MetaMethod` enum, and `Function::info`/`environment`.
+//!
+//! Implemented in Phase 2: the Luau-specific runtime types [`Buffer`] (the
+//! `buffer` type) and [`Vector`] (the `vector` type), with their
+//! [`Value::Buffer`]/[`Value::Vector`] variants and `FromLua`/`IntoLua` impls.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 
+mod buffer;
 mod callback;
 mod chunk;
 mod conversion;
@@ -67,7 +72,9 @@ mod thread;
 mod traits;
 mod userdata;
 mod value;
+mod vector;
 
+pub use buffer::Buffer;
 pub use chunk::{Chunk, ChunkMode};
 pub use error::{Error, ExternalError, ExternalResult, Result};
 pub use function::{Function, FunctionInfo};
@@ -83,15 +90,17 @@ pub use userdata::{
     AnyUserData, UserData, UserDataFields, UserDataMethods, UserDataRef, UserDataRefMut,
 };
 pub use value::{Integer, Number, Value};
+pub use vector::Vector;
 
 /// Idiomatic glob-import prelude. Mirrors `mlua::prelude`, additionally
 /// re-exporting the short names so `use luaur_rt::prelude::*;` brings the whole
 /// ergonomic surface into scope.
 pub mod prelude {
     pub use crate::{
-        AnyUserData, Chunk, Error, ExternalError, ExternalResult, FromLua, FromLuaMulti, Function,
-        IntoLua, IntoLuaMulti, Lua, LuaString, MetaMethod, MultiValue, RegistryKey, Result, Table,
-        Thread, ThreadStatus, UserData, UserDataFields, UserDataMethods, Value, Variadic,
+        AnyUserData, Buffer, Chunk, Error, ExternalError, ExternalResult, FromLua, FromLuaMulti,
+        Function, IntoLua, IntoLuaMulti, Lua, LuaString, MetaMethod, MultiValue, RegistryKey,
+        Result, Table, Thread, ThreadStatus, UserData, UserDataFields, UserDataMethods, Value,
+        Variadic, Vector,
     };
 
     // mlua-style `Lua*`-prefixed aliases for users coming from mlua's prelude.

@@ -53,6 +53,12 @@ pub(crate) use luaur_vm::functions::lua_gc::lua_gc;
 // ---- metatable-aware tostring --------------------------------------------
 pub(crate) use luaur_vm::functions::lua_l_tolstring::lua_l_tolstring;
 
+// ---- buffers / vectors (Luau) --------------------------------------------
+pub(crate) use luaur_vm::functions::lua_newbuffer::lua_newbuffer;
+pub(crate) use luaur_vm::functions::lua_pushvector_lapi::lua_pushvector_lua_state_f32_f32_f32_f32;
+pub(crate) use luaur_vm::functions::lua_tobuffer::lua_tobuffer;
+pub(crate) use luaur_vm::functions::lua_tovector::lua_tovector;
+
 // ---- closures / userdata -------------------------------------------------
 pub(crate) use luaur_vm::functions::lua_newuserdatadtor::lua_newuserdatadtor;
 pub(crate) use luaur_vm::functions::lua_pushcclosurek::lua_pushcclosurek;
@@ -96,12 +102,14 @@ pub(crate) mod ttype {
     pub const NONE: c_int = -1;
     pub const NIL: c_int = 0;
     pub const BOOLEAN: c_int = 1;
+    pub const VECTOR: c_int = 5;
     pub const NUMBER: c_int = 3;
     pub const STRING: c_int = 6;
     pub const TABLE: c_int = 7;
     pub const FUNCTION: c_int = 8;
     pub const USERDATA: c_int = 9;
     pub const THREAD: c_int = 10;
+    pub const BUFFER: c_int = 11;
 }
 
 /// Coroutine status codes returned by [`super::lua_costatus`] (mirrors luaur's

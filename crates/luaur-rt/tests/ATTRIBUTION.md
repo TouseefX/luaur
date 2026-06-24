@@ -14,9 +14,17 @@ deviation were adapted with a `// DEVIATION:` note.
 Phase 1 added behavioral coverage for threads/coroutines (`tests/mlua_thread.rs`),
 `RegistryKey`, `UserDataFields`, typed `AnyUserData` read-back
 (`borrow`/`borrow_mut`/`take`/`is`/`type_id`), the `MetaMethod` enum, and
-`Function::info`/`environment`. Still deferred (later phases): async, scopes,
-serde, buffers, vectors, `Send`/`Sync`, the proc-macro `chunk!`, and
-`#[derive(UserData)]`.
+`Function::info`/`environment`.
+
+Phase 2 added the Luau-specific runtime types: `Buffer` (the `buffer` type) and
+`Vector` (the `vector` type), with their `Value::Buffer`/`Value::Vector` variants
+and `FromLua`/`IntoLua` impls. Coverage: `tests/mlua_buffer.rs` (ported verbatim
+from mlua's `tests/buffer.rs`), the vector tests in `tests/mlua_luau.rs`, and the
+re-enabled `Value::Vector`/`Value::Buffer` cases in `tests/mlua_value.rs`.
+
+Still deferred (later phases): async, scopes, serde, `Send`/`Sync`, the
+`Compiler` (chunk compile options / `set_vector_ctor`), sandbox/interrupts/
+fflags/heap-dump, the proc-macro `chunk!`, and `#[derive(UserData)]`.
 
 ## Adapted files
 
@@ -33,6 +41,7 @@ serde, buffers, vectors, `Send`/`Sync`, the proc-macro `chunk!`, and
 | `tests/mlua_multi.rs`      | `tests/multi.rs`      |
 | `tests/mlua_chunk.rs`      | `tests/chunk.rs`      |
 | `tests/mlua_luau.rs`       | `tests/luau.rs` (Luau-relevant subset) |
+| `tests/mlua_buffer.rs`     | `tests/buffer.rs` |
 
 ## mlua MIT License
 

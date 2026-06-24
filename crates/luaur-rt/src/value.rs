@@ -44,6 +44,11 @@ pub enum Value {
     UserData(crate::userdata::AnyUserData),
     /// A thread (coroutine).
     Thread(crate::thread::Thread),
+    /// A Luau vector (3 `f32` components). Mirrors `mlua::Value::Vector`.
+    Vector(crate::vector::Vector),
+    /// A Luau buffer (mutable, fixed-size byte array). Mirrors
+    /// `mlua::Value::Buffer`.
+    Buffer(crate::buffer::Buffer),
     /// A boxed Lua/Rust error carried as a first-class value (mirrors
     /// `mlua::Value::Error`). Produced when a Rust error is returned to Lua.
     Error(Box<crate::error::Error>),
@@ -64,6 +69,8 @@ impl Value {
             Value::Function(_) => "function",
             Value::UserData(_) => "userdata",
             Value::Thread(_) => "thread",
+            Value::Vector(_) => "vector",
+            Value::Buffer(_) => "buffer",
             Value::Error(_) => "error",
         }
     }
@@ -180,6 +187,32 @@ impl Value {
         }
     }
 
+    /// Whether this is a Luau vector value. Mirrors `mlua::Value::is_vector`.
+    pub fn is_vector(&self) -> bool {
+        matches!(self, Value::Vector(_))
+    }
+
+    /// View as a vector. Mirrors `mlua::Value::as_vector`.
+    pub fn as_vector(&self) -> Option<&crate::vector::Vector> {
+        match self {
+            Value::Vector(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Whether this is a Luau buffer value. Mirrors `mlua::Value::is_buffer`.
+    pub fn is_buffer(&self) -> bool {
+        matches!(self, Value::Buffer(_))
+    }
+
+    /// View as a buffer handle. Mirrors `mlua::Value::as_buffer`.
+    pub fn as_buffer(&self) -> Option<&crate::buffer::Buffer> {
+        match self {
+            Value::Buffer(b) => Some(b),
+            _ => None,
+        }
+    }
+
     /// View as an `i32` if it is an in-range integer.
     pub fn as_i32(&self) -> Option<i32> {
         self.as_integer().and_then(|i| i32::try_from(i).ok())
@@ -223,6 +256,9 @@ impl Value {
             Value::Function(f) => f.to_pointer(),
             Value::UserData(u) => u.to_pointer(),
             Value::Thread(t) => t.to_pointer(),
+            // Buffers are GC objects (reference-typed); vectors are inline
+            // value types (no pointer identity), matching mlua.
+            Value::Buffer(b) => b.to_pointer(),
             _ => core::ptr::null(),
         }
     }
@@ -249,6 +285,9 @@ impl Value {
             Value::Integer(i) => Ok(i.to_string()),
             Value::Number(n) => Ok(crate::value::format_number(*n)),
             Value::Error(e) => Ok(e.to_string()),
+            // Vector is an inline value type: format it directly (mlua does the
+            // same, via `Vector`'s `Display`).
+            Value::Vector(v) => Ok(v.to_string()),
             // Reference types: ask the VM (honors `__tostring`).
             Value::String(s) => s.to_str(),
             other => {
@@ -258,6 +297,7 @@ impl Value {
                     Value::Function(f) => f.lua(),
                     Value::UserData(u) => u.lua(),
                     Value::Thread(t) => t.lua(),
+                    Value::Buffer(b) => b.lua(),
                     _ => unreachable!(),
                 };
                 lua.value_to_string(other)
@@ -297,6 +337,10 @@ impl PartialEq for Value {
             (Value::Function(a), Value::Function(b)) => a.to_pointer() == b.to_pointer(),
             (Value::UserData(a), Value::UserData(b)) => a.to_pointer() == b.to_pointer(),
             (Value::Thread(a), Value::Thread(b)) => a.to_pointer() == b.to_pointer(),
+            // Vectors compare component-wise (value type); buffers by object
+            // identity (reference type), matching mlua/Luau `==`.
+            (Value::Vector(a), Value::Vector(b)) => a == b,
+            (Value::Buffer(a), Value::Buffer(b)) => a.to_pointer() == b.to_pointer(),
             (Value::Error(a), Value::Error(b)) => a.to_string() == b.to_string(),
             _ => false,
         }
@@ -323,6 +367,12 @@ pub(crate) fn push_value(lua: &Lua, value: &Value) -> Result<()> {
             Value::Function(f) => f.push_to_stack(),
             Value::UserData(u) => u.push_to_stack(),
             Value::Thread(t) => t.push_to_stack(),
+            Value::Buffer(b) => b.push_to_stack(),
+            // luaur is a 3-wide vector build; the 4th component is ignored by
+            // the VM. Push x/y/z (w = 0).
+            Value::Vector(v) => {
+                lua_pushvector_lua_state_f32_f32_f32_f32(state, v.x(), v.y(), v.z(), 0.0)
+            }
             // An error value pushes as its message string (so Lua code that
             // receives it can `tostring(err)` it). This matches how a Rust
             // callback's `Err` surfaces to Lua as a string error object.
@@ -372,7 +422,22 @@ pub(crate) fn value_from_stack(lua: &Lua, idx: c_int) -> Result<Value> {
                 lua_pushvalue(state, idx);
                 Value::Thread(crate::thread::Thread::from_ref(lua.pop_ref()))
             }
-            // Vectors and any other exotic tags collapse to Nil for v1.
+            x if x == ttype::VECTOR => {
+                // luaur is a 3-wide vector build: read the three components from
+                // the inline `TValue` via `lua_tovector`.
+                let p = lua_tovector(state, idx);
+                if p.is_null() {
+                    Value::Nil
+                } else {
+                    let comps = core::slice::from_raw_parts(p, crate::vector::Vector::SIZE);
+                    Value::Vector(crate::vector::Vector::new(comps[0], comps[1], comps[2]))
+                }
+            }
+            x if x == ttype::BUFFER => {
+                lua_pushvalue(state, idx);
+                Value::Buffer(crate::buffer::Buffer::from_ref(lua.pop_ref()))
+            }
+            // Any other exotic tags collapse to Nil.
             _ => Value::Nil,
         };
         Ok(value)

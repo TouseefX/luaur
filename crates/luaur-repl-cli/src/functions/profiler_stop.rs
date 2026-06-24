@@ -1,32 +1,14 @@
-use core::sync::atomic::{AtomicBool, AtomicI64, AtomicUsize, Ordering};
-use std::thread::JoinHandle;
+//! Faithful port of `void profilerStop()` (CLI/src/Profiler.cpp:109).
 
-#[allow(non_snake_case)]
-struct ProfilerCallbacks {
-    interrupt: fn(),
-}
+use core::sync::atomic::Ordering;
 
-#[allow(non_snake_case)]
-struct ProfilerState {
-    exit: AtomicBool,
-    frequency: i64,
-    ticks: AtomicI64,
-    samples: AtomicUsize,
-    callbacks: *mut ProfilerCallbacks,
-    thread: Option<JoinHandle<()>>,
-}
+use crate::functions::profiler_trigger::G_PROFILER;
 
 pub fn profiler_stop() {
     unsafe {
-        extern "Rust" {
-            static mut gProfiler: ProfilerState;
-        }
-
-        let profiler = core::ptr::addr_of_mut!(gProfiler).as_mut().unwrap();
+        let profiler = core::ptr::addr_of_mut!(G_PROFILER).as_mut().unwrap();
         profiler.exit.store(true, Ordering::Relaxed);
-
-        let thread = core::mem::replace(&mut profiler.thread, None);
-        if let Some(handle) = thread {
+        if let Some(handle) = profiler.thread.take() {
             let _ = handle.join();
         }
     }

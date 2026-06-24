@@ -1,7 +1,8 @@
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use core::ffi::CStr;
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::thread::JoinHandle;
 
 use luaur_vm::functions::lua_callbacks::lua_callbacks;
 use luaur_vm::functions::lua_getinfo::lua_getinfo;
@@ -17,8 +18,15 @@ use luaur_vm::records::lua_state::lua_State;
 // DenseHashMap<string,uint64> for `data`; a BTreeMap captures the same
 // stack→ticks accumulation.)
 pub(crate) struct ProfilerTriggerState {
+    // static state (Profiler.cpp: callbacks / frequency / thread)
     pub(crate) callbacks: *mut LuaCallbacks,
+    pub(crate) frequency: i32,
+    pub(crate) thread: Option<JoinHandle<()>>,
+    // loop<->trigger communication
+    pub(crate) exit: AtomicBool,
     pub(crate) ticks: AtomicU64,
+    pub(crate) samples: AtomicU64,
+    // trigger-private + statistics
     pub(crate) current_ticks: u64,
     pub(crate) stack_scratch: String,
     pub(crate) data: Option<BTreeMap<String, u64>>,
@@ -27,7 +35,11 @@ pub(crate) struct ProfilerTriggerState {
 
 pub(crate) static mut G_PROFILER: ProfilerTriggerState = ProfilerTriggerState {
     callbacks: core::ptr::null_mut(),
+    frequency: 1000,
+    thread: None,
+    exit: AtomicBool::new(false),
     ticks: AtomicU64::new(0),
+    samples: AtomicU64::new(0),
     current_ticks: 0,
     stack_scratch: String::new(),
     data: None,

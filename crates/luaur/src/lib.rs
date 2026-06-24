@@ -3,8 +3,9 @@
 //! A faithful Rust translation of [Luau](https://github.com/luau-lang/luau) —
 //! Roblox's typed Lua. This umbrella crate re-exports the individual layers
 //! (lexer/parser/AST, bytecode, compiler, register VM, type checker, config and
-//! require resolution) and provides two thin convenience helpers, [`compile`]
-//! and [`eval`], for the common "compile a string / run a string" cases.
+//! require resolution) and provides three thin convenience helpers — [`compile`],
+//! [`eval`], and [`check`] — for the common "compile a string / run a string /
+//! type-check a string" cases.
 //!
 //! For finer-grained control depend on the sub-crates directly; they are all
 //! re-exported here as modules.
@@ -13,6 +14,7 @@
 //! luaur::eval("assert(1 + 1 == 2)").unwrap();
 //! let bytecode = luaur::compile("return 2 + 2").unwrap();
 //! assert!(!bytecode.is_empty());
+//! luaur::check("local x: number = 1").unwrap();
 //! ```
 
 // Re-export the sub-crates as modules so `luaur::vm::...` etc. work from one dep.
@@ -25,9 +27,12 @@ pub use luaur_config as config;
 pub use luaur_require as require;
 pub use luaur_vm as vm;
 
+mod check;
+pub use check::check;
+
 /// Common entry points, re-exported for convenience.
 pub mod prelude {
-    pub use crate::{compile, eval};
+    pub use crate::{check, compile, eval};
     pub use luaur_ast::records::parse_options::ParseOptions;
     pub use luaur_compiler::records::compile_options::CompileOptions;
 }

@@ -323,8 +323,11 @@ const elRun = $("btn-run");
 const elCheck = $("btn-check");
 const elClear = $("btn-clear");
 const elSelect = $("example-select");
+const elDiag = $("diag");
 
 let editor = null;
+const AUTOCHECK_DEBOUNCE_MS = 450; // run check() this long after the last keystroke
+let autoCheckTimer = null;
 
 // ─────────────────────────── editor ───────────────────────────
 function makeEditor(initialDoc) {
@@ -338,6 +341,11 @@ function makeEditor(initialDoc) {
     },
   ]);
 
+  // Re-run the (always-precise) type checker a short debounce after each edit.
+  const autoCheckListener = EditorView.updateListener.of((update) => {
+    if (update.docChanged) scheduleAutoCheck();
+  });
+
   const state = EditorState.create({
     doc: initialDoc,
     extensions: [
@@ -345,6 +353,7 @@ function makeEditor(initialDoc) {
       StreamLanguage.define(lua),
       oneDark,
       runShortcut,
+      autoCheckListener,
       EditorView.theme({
         "&": { height: "100%", backgroundColor: "transparent" },
         ".cm-scroller": { overflow: "auto" },
@@ -382,7 +391,81 @@ function escapeHtml(s) {
 
 function writeOutput(text, kind) {
   const cls = kind ? ` class="${kind}"` : "";
+  elOutput.classList.remove("is-booting");
   elOutput.innerHTML = `<span${cls}>${escapeHtml(text)}</span>`;
+}
+
+// Append a raw HTML fragment after the main output (used for the caveat block).
+function appendOutputHtml(html) {
+  elOutput.insertAdjacentHTML("beforeend", html);
+}
+
+// ─────────────────────────── diagnostics strip ───────────────────────────
+// The wasm `check(source)` returns either "No errors." or newline-joined
+// diagnostics, each shaped roughly "line: message". This is the path that is
+// fully precise on the stable wasm32-unknown-unknown build, so we surface it
+// live, above the editor.
+function setDiag(stateClass, icon, lines) {
+  elDiag.className = "diag-strip " + stateClass;
+  const body = lines
+    .map((l) => `<span class="diag-line">${l}</span>`)
+    .join("");
+  elDiag.innerHTML =
+    `<span class="diag-icon">${icon}</span><span class="diag-body">${body}</span>`;
+}
+
+// Turn one raw diagnostic line into HTML, highlighting a leading "N:" / "N,C:"
+// location in the foil color so the line number reads at a glance.
+function formatDiagLine(raw) {
+  const m = raw.match(/^\s*(\d+(?:\s*,\s*\d+)?)\s*:\s*(.*)$/s);
+  if (m) {
+    return `<span class="diag-loc">line ${escapeHtml(m[1])}</span> — ${escapeHtml(m[2])}`;
+  }
+  return escapeHtml(raw);
+}
+
+function renderDiagnostics(result) {
+  const trimmed = result.trim();
+  if (trimmed === "No errors." || trimmed === "") {
+    setDiag("is-ok", "✓", ["No type errors — the analyzer accepts this program."]);
+    return false; // no errors
+  }
+  const all = trimmed.split("\n").filter((l) => l.trim() !== "");
+  const shown = all.slice(0, 4).map(formatDiagLine);
+  if (all.length > shown.length) {
+    shown.push(`<span class="diag-more">… and ${all.length - shown.length} more</span>`);
+  }
+  setDiag("is-err", "✗", shown);
+  return true; // has errors
+}
+
+// Run check() and paint the strip. Quiet (no main-output writes) so it never
+// fights with the Run output. Trap-safe: a trapped checker reloads silently.
+async function autoCheck() {
+  if (!engine) return;
+  setDiag("is-busy", "◴", ["Type-checking…"]);
+  await frame();
+  let result;
+  try {
+    result = engine.check(getSource());
+  } catch (e) {
+    if (isTrap(e)) {
+      setDiag("is-idle", "·", [
+        "The analyzer hit an unrecoverable path on this input; engine reloaded.",
+      ]);
+      await recoverFromTrap();
+    } else {
+      setDiag("is-idle", "·", ["Type-checker unavailable: " + escapeHtml(msg(e))]);
+    }
+    return;
+  }
+  renderDiagnostics(result);
+}
+
+function scheduleAutoCheck() {
+  if (autoCheckTimer) clearTimeout(autoCheckTimer);
+  if (!engine) return;
+  autoCheckTimer = setTimeout(autoCheck, AUTOCHECK_DEBOUNCE_MS);
 }
 
 // A wasm trap (from an un-unwindable panic = a Lua error: parse error, runtime
@@ -413,13 +496,27 @@ async function doRun() {
     result = engine.run(src);
   } catch (e) {
     if (isTrap(e)) {
-      writeOutput(
-        "The script raised a Lua error (a runtime error, error(), a failed\n" +
-          "assert/pcall, or a syntax error). The engine has been reloaded — edit\n" +
-          "the script and run again.",
-        "out-err"
+      // A *runtime* Lua error (error(), nil-index, failed assert/pcall) — or a
+      // parse error — traps the instance, because recoverable panics can't
+      // unwind on stable wasm32-unknown-unknown (panic = "abort"). We can't
+      // recover the exact message text from a trap, so we say so honestly and
+      // reload the engine transparently. The type-checker above catches most
+      // mistakes *before* Run, on the path that is fully precise on this build.
+      writeOutput("⚠  Runtime error.", "out-warn");
+      appendOutputHtml(
+        '<span class="caveat">' +
+          "The in-browser build (stable <code>wasm32-unknown-unknown</code>, " +
+          "<code>panic=abort</code>) can run and type-check, but it <b>cannot capture the " +
+          "exact text of a runtime error</b> — that path traps the WebAssembly instance. " +
+          "<br><br>" +
+          "Most mistakes are caught precisely by the <b>type-checker above</b> " +
+          "(it runs automatically as you edit). For full runtime-error messages and " +
+          "stack traces, the <code>luaur</code> CLI prints them in full." +
+          "<br><br>" +
+          "The engine has been reloaded — the next Run works normally." +
+          "</span>"
       );
-      setStatus("lua error", "error");
+      setStatus("runtime error", "error");
       await recoverFromTrap();
     } else {
       writeOutput("internal error: " + msg(e), "out-err");
@@ -468,8 +565,9 @@ async function doCheck() {
     setRunning(false);
     return;
   }
-  if (result.trim() === "No errors." || result.trim() === "") {
-    writeOutput("No type errors.\nThe analyzer accepts this program.", "out-ok");
+  const hasErrors = renderDiagnostics(result);
+  if (!hasErrors) {
+    writeOutput("✓ No type errors.\nThe analyzer accepts this program.", "out-ok");
     setStatus("type-checked", "ready");
   } else {
     writeOutput("Type-checker diagnostics:\n\n" + result, "out-err");
@@ -505,6 +603,7 @@ function populateExamples() {
     if (ex) {
       setSource(ex.source);
       doClear();
+      scheduleAutoCheck();
     }
   });
 }
@@ -524,12 +623,17 @@ async function boot() {
     elCheck.disabled = false;
     setStatus("ready", "ready");
     writeOutput(
-      'Engine ready. Press "Run" to execute, or "Type-check" to analyze.\n' +
-        "Try the examples in the dropdown above — including the deliberate type error.",
+      'Engine ready. Press "Run" to execute on the Rust VM.\n' +
+        "The type-checker runs automatically as you edit — see the strip above the editor.",
       "out-meta"
     );
+    // Type-check the initial document right away, on the path that works
+    // perfectly on stable wasm32-unknown-unknown.
+    autoCheck();
   } catch (e) {
+    elOutput.classList.remove("is-booting");
     setStatus("wasm failed", "error");
+    setDiag("is-idle", "·", ["Type-checker unavailable (engine failed to load)."]);
     writeOutput(
       "Failed to load the WebAssembly engine.\n" + (e && e.message ? e.message : e),
       "out-err"

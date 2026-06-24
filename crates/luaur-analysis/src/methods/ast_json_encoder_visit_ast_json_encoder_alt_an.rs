@@ -1,0 +1,10 @@
+//! Source: `Analysis/src/AstJsonEncoder.cpp:1435-1439` (hand-ported)
+use crate::records::ast_json_encoder::AstJsonEncoder;
+use luaur_ast::records::ast_stat_declare_global::AstStatDeclareGlobal;
+
+impl AstJsonEncoder {
+    pub fn visit_ast_stat_declare_global(&mut self, node: *mut AstStatDeclareGlobal) -> bool {
+        self.write_ast_stat_declare_global(node);
+        false
+    }
+}

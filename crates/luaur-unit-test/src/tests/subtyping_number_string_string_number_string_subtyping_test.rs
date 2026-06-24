@@ -1,0 +1,24 @@
+use crate::records::subtype_fixture::SubtypeFixture;
+use alloc::vec;
+
+#[cfg(test)]
+#[test]
+fn subtyping_number_string_string_number_string() {
+    let mut fixture = SubtypeFixture::default();
+    let number_ty = fixture.builtin_types.numberType;
+    let string_ty = fixture.builtin_types.stringType;
+
+    let number_to_two_strings_ty = fixture
+        .fn_item_initializer_list_type_id_initializer_list_type_id(
+            vec![number_ty],
+            vec![string_ty, string_ty],
+        );
+    let number_to_string_ty = fixture.fn_item_initializer_list_type_id_initializer_list_type_id(
+        vec![number_ty],
+        vec![string_ty],
+    );
+
+    assert!(!fixture
+        .is_subtype_type_id_type_id(number_to_two_strings_ty, number_to_string_ty)
+        .is_subtype());
+}

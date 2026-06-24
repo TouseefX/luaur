@@ -1,0 +1,22 @@
+use crate::records::assembly_builder_x_64::AssemblyBuilderX64;
+use crate::records::label::Label;
+use crate::records::register_x_64::RegisterX64;
+
+impl AssemblyBuilderX64 {
+    pub fn log_c_char_register_x_64_label(
+        &mut self,
+        opcode: *const core::ffi::c_char,
+        reg: RegisterX64,
+        label: Label,
+    ) {
+        // C++ inlines this (does NOT call the 2-operand `log`, which would append a
+        // trailing newline after the register): pad opcode, log the register operand
+        // with no newline, then `,.L<id>\n`.
+        self.log_append(format_args!(" {:<12}", unsafe {
+            core::ffi::CStr::from_ptr(opcode).to_string_lossy()
+        }));
+        self.log_operand_x_64(reg.into());
+        self.text.push(',');
+        self.log_append(format_args!(".L{}\n", label.id));
+    }
+}

@@ -1,0 +1,25 @@
+use crate::functions::are_equal_structural_type_equality::are_equal_seen_set_type_pack_var_type_pack_var;
+use crate::functions::are_equal_structural_type_equality_alt_b::are_equal_seen_set_function_type_function_type;
+use crate::functions::are_equal_structural_type_equality_alt_c::are_equal_seen_set_table_type_table_type;
+use crate::functions::are_equal_structural_type_equality_alt_d::are_equal_seen_set_metatable_type_metatable_type;
+use crate::functions::are_equal_structural_type_equality_alt_e::are_equal_seen_set_type_item_type_item;
+use crate::functions::are_equal_type_function_runtime::are_equal_are_equal_state_type_function_singleton_type_type_function_singleton_type;
+use crate::functions::are_equal_type_function_runtime_alt_g::are_equal_are_equal_state_type_function_union_type_type_function_union_type;
+use crate::functions::are_equal_type_function_runtime_alt_h::are_equal_are_equal_state_type_function_intersection_type_type_function_intersection_type;
+use crate::functions::are_equal_type_function_runtime_alt_i::are_equal_are_equal_state_type_function_negation_type_type_function_negation_type;
+use crate::functions::are_equal_type_function_runtime_alt_j::are_equal_are_equal_state_type_function_table_type_type_function_table_type;
+use crate::functions::are_equal_type_function_runtime_alt_k::are_equal_are_equal_state_type_function_function_type_type_function_function_type;
+use crate::functions::are_equal_type_function_runtime_alt_l::are_equal_are_equal_state_type_function_extern_type_type_function_extern_type;
+use crate::functions::are_equal_type_function_runtime_alt_m::are_equal_are_equal_state_type_function_type_type_function_type;
+use crate::functions::are_equal_type_function_runtime_alt_n::are_equal_are_equal_state_type_function_type_pack_type_function_type_pack;
+use crate::functions::are_equal_type_function_runtime_alt_o::are_equal_are_equal_state_type_function_variadic_type_pack_type_function_variadic_type_pack;
+use crate::functions::are_equal_type_function_runtime_alt_p::are_equal_are_equal_state_type_function_type_pack_var_type_function_type_pack_var;
+use crate::records::r#type::Type;
+use crate::type_aliases::seen_set_structural_type_equality::SeenSet;
+
+impl Type {
+    pub fn operator_eq(&self, rhs: &Type) -> bool {
+        let mut seen: SeenSet = Default::default();
+        are_equal_seen_set_type_item_type_item(&mut seen, self, rhs)
+    }
+}

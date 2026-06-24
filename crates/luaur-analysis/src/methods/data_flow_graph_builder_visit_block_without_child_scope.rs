@@ -1,0 +1,27 @@
+use crate::enums::control_flow::ControlFlow;
+use crate::records::data_flow_graph_builder::DataFlowGraphBuilder;
+use luaur_ast::records::ast_stat_block::AstStatBlock;
+use luaur_common::macros::luau_assert::LUAU_ASSERT;
+
+impl DataFlowGraphBuilder {
+    pub fn visit_block_without_child_scope(&mut self, b: *mut AstStatBlock) -> ControlFlow {
+        LUAU_ASSERT!(!b.is_null());
+
+        let mut first_control_flow: Option<ControlFlow> = None;
+
+        unsafe {
+            let b = &*b;
+            let mut i = 0usize;
+            while i < b.body.size {
+                let stat = *b.body.data.add(i);
+                let cf = self.visit_ast_stat(stat);
+                if cf != ControlFlow::None && first_control_flow.is_none() {
+                    first_control_flow = Some(cf);
+                }
+                i += 1;
+            }
+        }
+
+        first_control_flow.unwrap_or(ControlFlow::None)
+    }
+}

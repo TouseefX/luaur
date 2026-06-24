@@ -1,0 +1,43 @@
+//! Generated skeleton item. @skeleton-stub
+//! Node: `cxx:Test:Luau.UnitTest:tests/TypeInfer.tables.test.cpp:253:type_infer_tables_function_calls_produces_sealed_table_given_unsealed_table`
+//! Source: `tests/TypeInfer.tables.test.cpp`
+//! Graph edges:
+//! - declared_by: source_file tests/TypeInfer.tables.test.cpp
+//! - source_includes:
+//!   - includes -> source_file Analysis/include/Luau/BuiltinDefinitions.h
+//!   - includes -> source_file Common/include/Luau/Common.h
+//!   - includes -> source_file Analysis/include/Luau/Error.h
+//!   - includes -> source_file Analysis/include/Luau/Frontend.h
+//!   - includes -> source_file Analysis/include/Luau/ToString.h
+//!   - includes -> source_file Analysis/include/Luau/TypeChecker2.h
+//!   - includes -> source_file Analysis/include/Luau/TypeInfer.h
+//!   - includes -> source_file Analysis/include/Luau/Type.h
+//!   - includes -> source_file tests/ClassFixture.h
+//!   - includes -> source_file tests/ScopedFlags.h
+//! - incoming:
+//!   - declares <- source_file tests/TypeInfer.tables.test.cpp
+//! - outgoing:
+//!   - type_ref -> record CheckResult (Analysis/include/Luau/Frontend.h)
+//!   - calls -> function foo (tests/NotNull.test.cpp)
+//!   - calls -> function fail (Config/src/Config.cpp)
+//!   - translates_to -> rust_item type_infer_tables_function_calls_produces_sealed_table_given_unsealed_table
+
+#[cfg(test)]
+#[test]
+fn type_infer_tables_function_calls_produces_sealed_table_given_unsealed_table() {
+    use crate::records::fixture::Fixture;
+    use alloc::string::String;
+
+    let mut fixture = Fixture::fixture_bool(false);
+    let result = fixture.check_string_optional_frontend_options(
+        &String::from(
+            r#"
+        function f() return {} end
+        f().foo = 'fail'
+    "#,
+        ),
+        None,
+    );
+
+    assert_eq!(1, result.errors.len(), "{:?}", result.errors);
+}

@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/luaur",
+    "crates/luaur-analysis",
+    "crates/luaur-analyze-cli",
+    "crates/luaur-ast",
+    "crates/luaur-ast-cli",
+    "crates/luaur-bytecode",
+    "crates/luaur-bytecode-cli",
+    "crates/luaur-cli-lib",
+    "crates/luaur-cli-test",
+    "crates/luaur-code-gen",
+    "crates/luaur-common",
+    "crates/luaur-compile-cli",
+    "crates/luaur-compiler",
+    "crates/luaur-config",
+    "crates/luaur-conformance",
+    "crates/luaur-reduce-cli",
+    "crates/luaur-repl-cli",
+    "crates/luaur-require",
+    "crates/luaur-unit-test",
+    "crates/luaur-vm",
+    "crates/luaur-web",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Pawel Jankiewicz <p.jankiewicz@gmail.com>"]
+repository = "https://github.com/pjankiewicz/luaur"
+rust-version = "1.80"
+keywords = ["luau", "lua", "interpreter", "compiler", "transpile"]

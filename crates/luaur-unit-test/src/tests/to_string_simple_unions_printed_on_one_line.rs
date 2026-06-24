@@ -1,0 +1,29 @@
+//! Ported from `tests/ToString.test.cpp`.
+
+#[cfg(test)]
+#[test]
+fn to_string_simple_unions_printed_on_one_line() {
+    use crate::records::fixture::Fixture;
+    use alloc::string::String;
+    use luaur_analysis::functions::to_string_to_string_alt_m::to_string_type_id_to_string_options;
+    use luaur_analysis::records::to_string_options::ToStringOptions;
+
+    let mut fixture = Fixture::fixture_bool(false);
+    let result = fixture.check_string_optional_frontend_options(
+        &String::from(
+            r#"
+        local a: number | boolean
+    "#,
+        ),
+        None,
+    );
+    assert_eq!(0, result.errors.len(), "{:?}", result.errors);
+
+    let mut opts = ToStringOptions::default();
+    opts.use_line_breaks = true;
+    let a = fixture.require_type_string(&String::from("a"));
+    assert_eq!(
+        "boolean | number",
+        to_string_type_id_to_string_options(a, &mut opts)
+    );
+}

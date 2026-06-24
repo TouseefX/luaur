@@ -1,0 +1,35 @@
+#[cfg(test)]
+#[test]
+fn assembly_builder_x_64_nop_forms() {
+    use luaur_code_gen::records::assembly_builder_x_64::AssemblyBuilderX64;
+
+    fn check(f: impl FnOnce(&mut AssemblyBuilderX64), code: &[u8]) {
+        let mut build = AssemblyBuilderX64::assembly_builder_x_64_bool_i32(false, 0);
+        f(&mut build);
+        build.finalize();
+        assert_eq!(&build.code[..], code, "instruction byte mismatch");
+    }
+
+    check(|b| b.nop(1), &[0x90]);
+    check(|b| b.nop(2), &[0x66, 0x90]);
+    check(|b| b.nop(3), &[0x0f, 0x1f, 0x00]);
+    check(|b| b.nop(4), &[0x0f, 0x1f, 0x40, 0x00]);
+    check(|b| b.nop(5), &[0x0f, 0x1f, 0x44, 0x00, 0x00]);
+    check(|b| b.nop(6), &[0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00]);
+    check(|b| b.nop(7), &[0x0f, 0x1f, 0x80, 0x00, 0x00, 0x00, 0x00]);
+    check(
+        |b| b.nop(8),
+        &[0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00],
+    );
+    check(
+        |b| b.nop(9),
+        &[0x66, 0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00],
+    );
+    check(
+        |b| b.nop(15),
+        &[
+            0x66, 0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0x66, 0x0f, 0x1f, 0x44, 0x00,
+            0x00,
+        ],
+    );
+}

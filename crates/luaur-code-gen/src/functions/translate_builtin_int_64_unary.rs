@@ -1,0 +1,41 @@
+use crate::enums::builtin_impl_type::BuiltinImplType;
+use crate::enums::ir_cmd::IrCmd;
+use crate::functions::builtin_check_int_64::builtin_check_int_64;
+use crate::functions::builtin_load_int_64::builtin_load_int_64;
+use crate::records::builtin_impl_result::BuiltinImplResult;
+use crate::records::ir_builder::IrBuilder;
+use luaur_vm::enums::lua_type::lua_Type;
+
+pub fn translate_builtin_int_64_unary(
+    build: &mut IrBuilder,
+    cmd: IrCmd,
+    nparams: i32,
+    ra: i32,
+    arg: i32,
+    nresults: i32,
+    pcpos: i32,
+) -> BuiltinImplResult {
+    if nparams < 1 || nresults > 1 {
+        return BuiltinImplResult {
+            r#type: BuiltinImplType::None,
+            actual_result_count: -1,
+        };
+    }
+
+    let vm_reg_arg = build.vm_reg(arg as u8);
+    builtin_check_int_64(build, vm_reg_arg, pcpos);
+
+    let va = builtin_load_int_64(build, vm_reg_arg);
+    let result = build.inst_ir_cmd_ir_op(cmd, va);
+
+    let vm_reg_ra = build.vm_reg(ra as u8);
+    build.inst_ir_cmd_ir_op_ir_op(IrCmd::STORE_INT64, vm_reg_ra, result);
+
+    let tag = build.const_tag(lua_Type::LUA_TINTEGER as u8);
+    build.inst_ir_cmd_ir_op_ir_op(IrCmd::STORE_TAG, vm_reg_ra, tag);
+
+    BuiltinImplResult {
+        r#type: BuiltinImplType::Full,
+        actual_result_count: 1,
+    }
+}

@@ -1,0 +1,26 @@
+use crate::records::module::Module;
+use crate::records::type_attacher::TypeAttacher;
+use crate::type_aliases::scope_ptr_scope::ScopePtr;
+use luaur_ast::records::location::Location;
+
+impl TypeAttacher {
+    pub fn get_scope(&mut self, loc: &Location) -> ScopePtr {
+        let module = unsafe { &*self.module };
+        let mut scope_location: Option<Location> = None;
+        let mut scope: Option<ScopePtr> = None;
+
+        for (s_loc, s_scope) in &module.scopes {
+            if s_loc.encloses(loc) {
+                if scope.is_none() || scope_location.as_ref().unwrap().encloses(s_loc) {
+                    scope_location = Some(*s_loc);
+                    scope = Some(s_scope.clone());
+                }
+            }
+        }
+
+        // The C++ code returns nullptr if no scope is found, but the Rust interface
+        // returns a non-optional Arc. In practice there is always at least one scope
+        // (the global scope) that encloses any location, so unwrap is safe.
+        scope.expect("no enclosing scope found")
+    }
+}

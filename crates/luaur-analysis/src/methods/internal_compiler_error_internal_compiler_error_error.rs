@@ -1,0 +1,7 @@
+use crate::records::internal_compiler_error::InternalCompilerError;
+
+impl InternalCompilerError {
+    pub fn internal_compiler_error_string(message: alloc::string::String) -> Self {
+        Self::internal_compiler_error_string_string(message, alloc::string::String::new())
+    }
+}

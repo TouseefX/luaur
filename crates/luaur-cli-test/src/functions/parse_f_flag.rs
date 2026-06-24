@@ -1,0 +1,23 @@
+use crate::functions::parse_f_value_helper::parse_f_value_helper;
+use crate::type_aliases::f_value_result::FValueResult;
+use alloc::string::String;
+
+pub fn parse_f_flag(view: &str) -> FValueResult<bool> {
+    let (name, value) = parse_f_value_helper(view);
+    let state = if let Some(ref val) = value {
+        val == "true"
+    } else {
+        true
+    };
+
+    if let Some(ref val) = value {
+        if val != "true" && val != "false" {
+            eprintln!(
+                "Ignored '{}' because '{}' is not a valid flag state",
+                name, val
+            );
+        }
+    }
+
+    (name, state)
+}

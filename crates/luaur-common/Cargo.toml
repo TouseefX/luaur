@@ -1,0 +1,24 @@
+[package]
+name = "luaur-common"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Foundational data structures and flags for the luaur Luau-in-Rust toolchain."
+keywords = ["luau", "lua", "data-structures", "no-std"]
+categories = ["data-structures", "no-std"]
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+wasm-bindgen = { version = "0.2", optional = true }
+
+[features]
+default = ["std"]
+std = []
+native = ["std"]
+cli = ["native"]
+native-codegen = ["native"]
+wasm = ["dep:wasm-bindgen"]

@@ -1,0 +1,27 @@
+use crate::records::compile_stats::CompileStats;
+
+impl CompileStats {
+    pub fn compile_stats_operator_add(&self, other: &CompileStats) -> CompileStats {
+        let mut result = self.clone();
+        result.compile_stats_operator_add_assign(other);
+        result
+    }
+}
+
+#[allow(non_snake_case)]
+impl core::ops::Add<CompileStats> for CompileStats {
+    type Output = CompileStats;
+
+    fn add(self, other: CompileStats) -> Self::Output {
+        self.compile_stats_operator_add(&other)
+    }
+}
+
+#[allow(non_snake_case)]
+impl core::ops::Add<&CompileStats> for &CompileStats {
+    type Output = CompileStats;
+
+    fn add(self, other: &CompileStats) -> Self::Output {
+        self.compile_stats_operator_add(other)
+    }
+}

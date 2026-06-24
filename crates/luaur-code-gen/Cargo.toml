@@ -1,0 +1,26 @@
+[package]
+name = "luaur-code-gen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Native (A64/X64) code generation for Luau (Rust)."
+keywords = ["luau", "lua", "codegen", "jit", "assembler"]
+categories = ["compilers"]
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+wasm-bindgen = { version = "0.2", optional = true }
+luaur-common = { path = "../luaur-common", version = "0.1.0" }
+luaur-vm = { path = "../luaur-vm", version = "0.1.0" }
+
+[features]
+default = ["std"]
+std = []
+native = ["std"]
+cli = ["native"]
+native-codegen = ["native"]
+wasm = ["dep:wasm-bindgen"]

@@ -1,0 +1,18 @@
+# Build artifacts
+/target
+/target/
+/target-codex/
+/target*/
+
+# Backup files from `cargo fix` / rustfmt
+**/*.rs.bk
+
+# Stray local logs
+err.log
+*.log
+
+# Editor / OS cruft
+.DS_Store
+.idea/
+
+# NOTE: Cargo.lock is intentionally committed (this workspace ships binaries).

@@ -1,0 +1,21 @@
+use crate::records::assembly_builder_a_64::AssemblyBuilderA64;
+use crate::records::register_a_64::RegisterA64;
+
+impl AssemblyBuilderA64 {
+    pub fn log_c_char_register_a_64_f64(
+        &mut self,
+        opcode: *const core::ffi::c_char,
+        dst: RegisterA64,
+        src: f64,
+    ) {
+        self.log_append(format_args!(" {:<12}", unsafe {
+            core::ffi::CStr::from_ptr(opcode).to_string_lossy()
+        }));
+        self.log_register_a_64(dst);
+        self.text.push(',');
+        // C++ uses "#%.17g". Rust has no %g; Display ({}) emits the shortest
+        // round-tripping decimal, the idiomatic equivalent (e.g. 0.25 -> "0.25").
+        self.log_append(format_args!("#{}", src));
+        self.text.push('\n');
+    }
+}

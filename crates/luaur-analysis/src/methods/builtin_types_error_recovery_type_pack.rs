@@ -1,0 +1,8 @@
+use crate::records::builtin_types::BuiltinTypes;
+use crate::type_aliases::type_pack_id::TypePackId;
+
+impl BuiltinTypes {
+    pub fn error_recovery_type_pack(&self, guess: TypePackId) -> TypePackId {
+        guess
+    }
+}

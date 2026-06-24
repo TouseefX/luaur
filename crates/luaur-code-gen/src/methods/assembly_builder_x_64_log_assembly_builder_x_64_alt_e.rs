@@ -1,0 +1,25 @@
+use crate::records::assembly_builder_x_64::AssemblyBuilderX64;
+use crate::records::operand_x_64::OperandX64;
+
+impl AssemblyBuilderX64 {
+    pub fn log_c_char_operand_x_64_operand_x_64_operand_x_64_operand_x_64(
+        &mut self,
+        opcode: *const core::ffi::c_char,
+        op1: OperandX64,
+        op2: OperandX64,
+        op3: OperandX64,
+        op4: OperandX64,
+    ) {
+        self.log_append(format_args!(" {:<12}", unsafe {
+            core::ffi::CStr::from_ptr(opcode).to_string_lossy()
+        }));
+        self.log_operand_x_64(op1);
+        self.text.push(',');
+        self.log_operand_x_64(op2);
+        self.text.push(',');
+        self.log_operand_x_64(op3);
+        self.text.push(',');
+        self.log_operand_x_64(op4);
+        self.text.push('\n');
+    }
+}

@@ -1,0 +1,29 @@
+[package]
+name = "luaur-config"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "`.luaurc` configuration handling for Luau (Rust)."
+keywords = ["luau", "lua", "config", "configuration"]
+categories = ["config", "parsing"]
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+wasm-bindgen = { version = "0.2", optional = true }
+luaur-ast = { path = "../luaur-ast", version = "0.1.0" }
+luaur-bytecode = { path = "../luaur-bytecode", version = "0.1.0" }
+luaur-common = { path = "../luaur-common", version = "0.1.0" }
+luaur-compiler = { path = "../luaur-compiler", version = "0.1.0" }
+luaur-vm = { path = "../luaur-vm", version = "0.1.0" }
+
+[features]
+default = ["std"]
+std = []
+native = ["std"]
+cli = ["native"]
+native-codegen = ["native"]
+wasm = ["dep:wasm-bindgen"]

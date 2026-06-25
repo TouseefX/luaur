@@ -27,7 +27,19 @@ pub fn get_current_working_directory() -> Option<alloc::string::String> {
 
         if !result.is_null() {
             let c_str = unsafe { core::ffi::CStr::from_ptr(result) };
-            return Some(c_str.to_string_lossy().into_owned());
+            // The require resolver / VfsNavigator work in a forward-slash virtual
+            // path space (they split and join on '/'). On Windows `_getcwd` returns
+            // backslashes and a drive letter (e.g. `D:\a\luaur`), which the resolver
+            // treated as one opaque component: the drive never componentized,
+            // `absolute_path_prefix` kept backslashes while `get_module_path` stripped
+            // the drive with forward slashes, and the two were concatenated into an
+            // inconsistent cache key. That broke require cycle detection on Windows
+            // (the same module got different keys), so a module that re-required
+            // itself recursed forever -> stack overflow (0xC0000409) across the
+            // require-by-string tests. Normalize to forward slashes here so Windows
+            // drive-letter cwds flow through the resolver exactly like POSIX paths.
+            // No-op on Unix (POSIX paths contain no backslashes).
+            return Some(c_str.to_string_lossy().replace('\\', "/"));
         }
 
         let err = std::io::Error::last_os_error();

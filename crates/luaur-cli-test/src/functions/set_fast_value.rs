@@ -1,5 +1,6 @@
 //! Faithful port of `setFastValue<T>` from `luau/tests/main.cpp:316`:
 //!
+//! ```c++
 //!     template<typename T>
 //!     static void setFastValue(const std::string& name, T value)
 //!     {
@@ -7,6 +8,7 @@
 //!             if (fvalue->name == name)
 //!                 fvalue->value = value;
 //!     }
+//! ```
 //!
 //! In Rust the per-`T` intrusive list head is supplied by `FValueList` (the
 //! template's `static FValue<T>* list`), and the public `name`/`next` fields are

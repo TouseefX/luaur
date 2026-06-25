@@ -1,12 +1,14 @@
 //! Windows variant of Repl.cpp's `sigintHandler`. Mirrors
 //! `luau-repl-cli/src/functions/sigint_handler_repl_alt_b.rs`.
 //!
+//! ```c++
 //!     BOOL WINAPI sigintHandler(DWORD signal)
 //!     {
 //!         if (signal == CTRL_C_EVENT && replState)
 //!             lua_callbacks(replState)->interrupt = &sigintCallback;
 //!         return TRUE;
 //!     }
+//! ```
 //!
 //! Registered via `SetConsoleCtrlHandler`; returning TRUE (1) tells Windows the
 //! event was handled. Arms the same interrupt callback as the POSIX variant.

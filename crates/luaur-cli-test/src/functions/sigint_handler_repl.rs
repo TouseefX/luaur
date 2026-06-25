@@ -1,11 +1,13 @@
 //! Unix variant of Repl.cpp's `sigintHandler`. Mirrors
 //! `luau-repl-cli/src/functions/sigint_handler_repl.rs`.
 //!
+//! ```c++
 //!     static void sigintHandler(int signum)
 //!     {
 //!         if (signum == SIGINT && replState)
 //!             lua_callbacks(replState)->interrupt = &sigintCallback;
 //!     }
+//! ```
 //!
 //! Installed with `signal(SIGINT, sigintHandler)`; it merely arms the interrupt
 //! callback so the VM raises "Execution interrupted" at the next safe point.

@@ -1,5 +1,6 @@
 //! Faithful port of `setFastFlags` from `luau/tests/main.cpp:324`:
 //!
+//! ```c++
 //!     static void setFastFlags(const std::vector<doctest::String>& flags)
 //!     {
 //!         for (const doctest::String& flag : flags)
@@ -26,6 +27,7 @@
 //!             }
 //!         }
 //!     }
+//! ```
 
 use alloc::string::String;
 use alloc::vec::Vec;

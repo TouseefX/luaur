@@ -24,8 +24,7 @@ pub fn paged_freeze(ptr: *mut core::ffi::c_void, size: usize) {
     {
         use windows_sys::Win32::System::Memory::{VirtualProtect, PAGE_READONLY};
         let mut old_protect: u32 = 0;
-        let rc =
-            unsafe { VirtualProtect(ptr, page_align(size), PAGE_READONLY, &mut old_protect) };
+        let rc = unsafe { VirtualProtect(ptr, page_align(size), PAGE_READONLY, &mut old_protect) };
         LUAU_ASSERT!(rc != 0);
     }
 

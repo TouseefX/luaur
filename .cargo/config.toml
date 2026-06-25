@@ -11,3 +11,15 @@ RUST_MIN_STACK = "67108864"
 # Tell the wasm linker to leave them as undefined imports instead of erroring.
 [target.wasm32-unknown-unknown]
 rustflags = ["-C", "link-arg=--allow-undefined"]
+
+# On Windows/MSVC the stdio family (printf/fprintf/snprintf) is *inline* in the
+# UCRT headers, so the VM's `extern "C"` declarations of them have no exported
+# symbol to bind to ("unresolved external symbol fprintf"). legacy_stdio_definitions
+# provides the real, exported definitions; ucrt provides gmtime_s/localtime_s.
+[target.'cfg(windows)']
+rustflags = [
+    "-C",
+    "link-arg=/DEFAULTLIB:legacy_stdio_definitions.lib",
+    "-C",
+    "link-arg=/DEFAULTLIB:ucrt.lib",
+]

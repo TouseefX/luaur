@@ -19,18 +19,25 @@ env:
   RUST_BACKTRACE: "1"
 
 jobs:
+  # The core suite on all three desktop platforms. luaur is pure Rust with no C
+  # dependency, so it should build and pass everywhere Rust does — this proves it.
   test:
-    name: Test — stable / ubuntu
-    runs-on: ubuntu-latest
-    # ~16k files across 24 crates; the cold build is large. Generous ceiling.
-    timeout-minutes: 60
+    name: Test — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Don't let a failure on one OS cancel the others — we want the full
+      # cross-platform picture on every run.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    # Windows cold builds of ~24 crates are the slow case; generous ceiling.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # Shared build cache keyed on Cargo.lock; makes subsequent runs fast.
       - name: Cache cargo + target
         uses: Swatinem/rust-cache@v2
 
@@ -44,41 +51,50 @@ jobs:
 
       # Default features: the ~5.6k translated unit tests + conformance + e2e.
       # RUST_MIN_STACK (.cargo/config.toml) and the nextest thread/timeout config
-      # (.config/nextest.toml) are picked up automatically.
+      # (.config/nextest.toml) are picked up automatically on every platform.
       - name: Test workspace (default features)
         run: cargo nextest run --workspace --locked
 
-      # Opt-in feature surface. async and send are mutually exclusive, so the
-      # async-side superset and the send side run as two separate invocations.
-      # typecheck pulls in the static type checker (luaur-analysis).
-      - name: Test luaur-rt (async, serde, macros, typecheck)
-        run: cargo nextest run -p luaur-rt --locked --features async,serde,macros,typecheck
+      # The opt-in feature surface and doctests are platform-agnostic Rust; run
+      # them once (on Linux) to keep CI minutes down. async and send are mutually
+      # exclusive, so they go as two invocations. typecheck pulls the type checker.
+      - name: Test luaur-rt feature combos
+        if: runner.os == 'Linux'
+        run: |
+          cargo nextest run -p luaur-rt --locked --features async,serde,macros,typecheck
+          cargo nextest run -p luaur-rt --locked --features send,typecheck
 
-      - name: Test luaur-rt (send, typecheck)
-        run: cargo nextest run -p luaur-rt --locked --features send,typecheck
-
-      # Doctests (nextest does not run them). Umbrella runs with its default
-      # features, which include `typecheck`, so the check_with_definitions doc
-      # example is exercised here.
       - name: Doctests (luaur + luaur-rt)
+        if: runner.os == 'Linux'
         run: cargo test --doc -p luaur -p luaur-rt --locked
 
+  # rustfmt gate — the one lint that is clean across the translated tree (clippy
+  # is not: the faithful port carries thousands of intentional style warnings).
+  fmt:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust (+ rustfmt)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: cargo fmt --all --check
+        run: cargo fmt --all --check
+
+  # The headline claim — the compiler, VM and type checker build for
+  # wasm32-unknown-unknown with no C toolchain — verified on every push.
   wasm:
     name: Build wasm32 — luaur-web
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-
       - name: Install stable Rust (+ wasm32 target)
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-
       - name: Cache cargo + target
         uses: Swatinem/rust-cache@v2
-
-      # The headline claim — the compiler, VM and type checker build for
-      # wasm32-unknown-unknown with no C toolchain — verified on every push.
       - name: Build luaur-web for wasm32-unknown-unknown
         run: cargo build -p luaur-web --target wasm32-unknown-unknown --features wasm --locked

@@ -88,17 +88,51 @@ macro_rules! impl_integer {
 
         impl FromLua for $ty {
             fn from_lua(value: Value, _lua: &Lua) -> Result<Self> {
-                let n: i64 = match value {
-                    Value::Integer(i) => i,
+                // Convert an (already truncated, finite) float directly into the
+                // target type with a range check against its f64 bounds, so a
+                // value beyond `i64` range (e.g. `2^64` for `u64`) is correctly
+                // rejected rather than silently saturating through `i64`.
+                fn from_float(f: f64) -> Result<$ty> {
+                    // Truncate toward zero, then range-check in `i128` space so a
+                    // value beyond the target's range (e.g. `2^64` for `u64`) is
+                    // rejected rather than saturating. Values whose magnitude
+                    // exceeds `i128` are likewise out of range for any `$ty`.
+                    let t = f.trunc();
+                    if t < (i128::MIN as f64) || t > (i128::MAX as f64) {
+                        return Err(Error::FromLuaConversionError {
+                            from: "number",
+                            to: stringify!($ty).to_string(),
+                            message: Some("out of range".to_string()),
+                        });
+                    }
+                    let wide = t as i128;
+                    <$ty>::try_from(wide).map_err(|_| Error::FromLuaConversionError {
+                        from: "number",
+                        to: stringify!($ty).to_string(),
+                        message: Some("out of range".to_string()),
+                    })
+                }
+                match value {
+                    Value::Integer(i) => {
+                        <$ty>::try_from(i).map_err(|_| Error::FromLuaConversionError {
+                            from: "number",
+                            to: stringify!($ty).to_string(),
+                            message: Some("out of range".to_string()),
+                        })
+                    }
                     Value::Number(f) => {
-                        if f.fract() != 0.0 || !f.is_finite() {
+                        // Luau is f64-backed: `tonumber`/`lua_tointegerx`
+                        // **truncate** a fractional float toward zero rather than
+                        // rejecting it (matching mlua on the Luau backend). A
+                        // non-finite number has no integer representation.
+                        if !f.is_finite() {
                             return Err(Error::FromLuaConversionError {
                                 from: "number",
                                 to: stringify!($ty).to_string(),
                                 message: Some("number has no integer representation".to_string()),
                             });
                         }
-                        f as i64
+                        from_float(f)
                     }
                     // Lua coerces numeric strings to numbers (mirrors mlua's
                     // string fallback for integer conversions).
@@ -106,23 +140,67 @@ macro_rules! impl_integer {
                         let text = s.to_string_lossy();
                         let trimmed = text.trim();
                         if let Ok(i) = trimmed.parse::<i64>() {
-                            i
+                            <$ty>::try_from(i).map_err(|_| Error::FromLuaConversionError {
+                                from: "string",
+                                to: stringify!($ty).to_string(),
+                                message: Some("out of range".to_string()),
+                            })
                         } else if let Ok(f) = trimmed.parse::<f64>() {
-                            if f.fract() != 0.0 || !f.is_finite() {
+                            if !f.is_finite() {
                                 return Err(Error::FromLuaConversionError {
                                     from: "string",
                                     to: stringify!($ty).to_string(),
                                     message: Some("number has no integer representation".to_string()),
                                 });
                             }
-                            f as i64
+                            from_float(f)
                         } else {
-                            return Err(Error::FromLuaConversionError {
+                            Err(Error::FromLuaConversionError {
                                 from: "string",
                                 to: stringify!($ty).to_string(),
                                 message: Some("not a number".to_string()),
-                            });
+                            })
                         }
+                    }
+                    other => {
+                        Err(Error::FromLuaConversionError {
+                            from: other.type_name(),
+                            to: stringify!($ty).to_string(),
+                            message: None,
+                        })
+                    }
+                }
+            }
+        }
+    )*};
+}
+
+impl_integer!(i8, u8, i16, u16, i32, u32, i64, u64, isize, usize);
+
+// 128-bit integers exceed Luau's f64-backed number range, so they round-trip
+// **lossily** through `f64` (matching mlua, which has no 128-bit Lua number).
+// Values within f64's exactly-representable range survive the round trip.
+macro_rules! impl_integer_128 {
+    ($($ty:ty),*) => {$(
+        impl IntoLua for $ty {
+            fn into_lua(self, _lua: &Lua) -> Result<Value> {
+                Ok(Value::Number(self as f64))
+            }
+        }
+
+        impl FromLua for $ty {
+            fn from_lua(value: Value, _lua: &Lua) -> Result<Self> {
+                let n: f64 = match value {
+                    Value::Integer(i) => i as f64,
+                    Value::Number(f) => f,
+                    Value::String(ref s) => {
+                        s.to_string_lossy().trim().parse::<f64>().map_err(|_| {
+                            Error::FromLuaConversionError {
+                                from: "string",
+                                to: stringify!($ty).to_string(),
+                                message: Some("not a number".to_string()),
+                            }
+                        })?
                     }
                     other => {
                         return Err(Error::FromLuaConversionError {
@@ -132,17 +210,20 @@ macro_rules! impl_integer {
                         });
                     }
                 };
-                <$ty>::try_from(n).map_err(|_| Error::FromLuaConversionError {
-                    from: "number",
-                    to: stringify!($ty).to_string(),
-                    message: Some("out of range".to_string()),
-                })
+                if n.fract() != 0.0 || !n.is_finite() {
+                    return Err(Error::FromLuaConversionError {
+                        from: "number",
+                        to: stringify!($ty).to_string(),
+                        message: Some("number has no integer representation".to_string()),
+                    });
+                }
+                Ok(n as $ty)
             }
         }
     )*};
 }
 
-impl_integer!(i8, u8, i16, u16, i32, u32, i64, u64, isize, usize);
+impl_integer_128!(i128, u128);
 
 // `Integer` is `i64`, already covered by impl_integer.
 const _: () = {
@@ -775,6 +856,25 @@ impl<T: FromLua> FromLuaMulti for Variadic<T> {
 // Error <-> Value::Error  +  Result<T, E> : IntoLuaMulti
 // ---------------------------------------------------------------------------
 
+impl IntoLua for crate::light_userdata::LightUserData {
+    fn into_lua(self, _lua: &Lua) -> Result<Value> {
+        Ok(Value::LightUserData(self))
+    }
+}
+
+impl FromLua for crate::light_userdata::LightUserData {
+    fn from_lua(value: Value, _lua: &Lua) -> Result<Self> {
+        match value {
+            Value::LightUserData(lud) => Ok(lud),
+            other => Err(Error::FromLuaConversionError {
+                from: other.type_name(),
+                to: "LightUserData".to_string(),
+                message: None,
+            }),
+        }
+    }
+}
+
 impl IntoLua for Error {
     fn into_lua(self, _lua: &Lua) -> Result<Value> {
         Ok(Value::Error(Box::new(self)))
@@ -829,31 +929,62 @@ impl FromLuaMulti for MultiValue {
 // Tuples (IntoLuaMulti / FromLuaMulti) up to 12
 // ---------------------------------------------------------------------------
 
-macro_rules! impl_tuple {
+// `IntoLuaMulti` for tuples: each element may itself spread to multiple values
+// (e.g. a trailing `Variadic<T>`), so concatenate their `MultiValue`s.
+macro_rules! impl_tuple_into {
     () => {};
     ($first:ident $($rest:ident)*) => {
-        impl_tuple!($($rest)*);
+        impl_tuple_into!($($rest)*);
 
         #[allow(non_snake_case)]
-        impl<$first: IntoLua, $($rest: IntoLua,)*> IntoLuaMulti for ($first, $($rest,)*) {
+        impl<$first: IntoLuaMulti, $($rest: IntoLuaMulti,)*> IntoLuaMulti for ($first, $($rest,)*) {
             fn into_lua_multi(self, lua: &Lua) -> Result<MultiValue> {
                 let ($first, $($rest,)*) = self;
                 let mut m = MultiValue::new();
-                m.push_back($first.into_lua(lua)?);
-                $( m.push_back($rest.into_lua(lua)?); )*
+                for v in $first.into_lua_multi(lua)? { m.push_back(v); }
+                $( for v in $rest.into_lua_multi(lua)? { m.push_back(v); } )*
                 Ok(m)
-            }
-        }
-
-        #[allow(non_snake_case)]
-        impl<$first: FromLua, $($rest: FromLua,)*> FromLuaMulti for ($first, $($rest,)*) {
-            fn from_lua_multi(mut values: MultiValue, lua: &Lua) -> Result<Self> {
-                let $first = $first::from_lua(values.pop_front().unwrap_or(Value::Nil), lua)?;
-                $( let $rest = $rest::from_lua(values.pop_front().unwrap_or(Value::Nil), lua)?; )*
-                Ok(($first, $($rest,)*))
             }
         }
     };
 }
 
-impl_tuple!(A B C D E F G H I J K L);
+impl_tuple_into!(A B C D E F G H I J K L);
+
+// `FromLuaMulti` for tuples. The **last** element is parsed as a `FromLuaMulti`
+// (so it may be a trailing `Variadic<T>` that consumes every remaining value);
+// the preceding elements each consume exactly one value via `FromLua`.
+//
+// Because every `FromLua` type is also `FromLuaMulti` (the blanket impl), a
+// single impl per arity with the last slot bound `FromLuaMulti` subsumes the
+// all-`FromLua` case as well — no overlapping impls. Mirrors mlua's tuple
+// `FromLuaMulti`, which lets the final slot soak up the rest.
+macro_rules! impl_tuple_from {
+    // Base: a 1-tuple is just its single `FromLuaMulti` element.
+    ($last:ident;) => {
+        #[allow(non_snake_case)]
+        impl<$last: FromLuaMulti> FromLuaMulti for ($last,) {
+            fn from_lua_multi(values: MultiValue, lua: &Lua) -> Result<Self> {
+                Ok(($last::from_lua_multi(values, lua)?,))
+            }
+        }
+    };
+    ($last:ident; $head0:ident $($head:ident)*) => {
+        impl_tuple_from!($last; $($head)*);
+
+        #[allow(non_snake_case)]
+        impl<$head0: FromLua, $($head: FromLua,)* $last: FromLuaMulti>
+            FromLuaMulti for ($head0, $($head,)* $last,)
+        {
+            fn from_lua_multi(mut values: MultiValue, lua: &Lua) -> Result<Self> {
+                let $head0 = $head0::from_lua(values.pop_front().unwrap_or(Value::Nil), lua)?;
+                $( let $head = $head::from_lua(values.pop_front().unwrap_or(Value::Nil), lua)?; )*
+                let $last = $last::from_lua_multi(values, lua)?;
+                Ok(($head0, $($head,)* $last,))
+            }
+        }
+    };
+}
+
+// Arities 1..=12 (last element `FromLuaMulti`, the rest `FromLua`).
+impl_tuple_from!(L; A B C D E F G H I J K);

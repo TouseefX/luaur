@@ -28,8 +28,8 @@
 use std::cell::Cell;
 
 use crate::error::{Error, Result};
-use crate::ffi::*;
-use crate::sync::{MaybeSend, MaybeSync, NotSync, XRc, NOT_SYNC};
+use crate::sys::*;
+use crate::sync::{MaybeSend, MaybeSync, NotSync, XRc, XWeak, NOT_SYNC};
 use crate::value::Value;
 
 // Re-export the GC-control types here so they live at `luaur_rt::state::{..}`,
@@ -52,13 +52,16 @@ pub(crate) struct LuaInner {
 impl Drop for LuaInner {
     fn drop(&mut self) {
         if self.owned && !self.state.is_null() {
+            // Drop this VM's application-data store before closing the state
+            // (it is keyed by the global-state pointer, still valid here).
+            crate::app_data::clear_app_data(self.state);
             unsafe {
                 // Reset the active memory category to 0 ("main") before closing.
                 // `Lua::set_memory_category` may have left a non-main category
                 // active; allocations made during teardown would otherwise be
                 // accounted to it, tripping `close_state`'s debug invariant that
                 // only category 0 is non-empty at shutdown.
-                crate::ffi::lua_setmemcat(self.state, 0);
+                crate::sys::lua_setmemcat(self.state, 0);
                 lua_close(self.state)
             }
         }
@@ -127,6 +130,47 @@ impl Lua {
         }
     }
 
+    /// Create a new Lua state with the standard library opened, **without** the
+    /// extra safety restrictions a safe `Lua::new` would impose.
+    ///
+    /// Mirrors `mlua::Lua::unsafe_new`. In Luau there is no separate set of
+    /// "unsafe" base libraries (the `debug`/`ffi`/`package` distinction is a
+    /// Lua-5.x concept), so this is equivalent to [`Lua::new`]; it exists for
+    /// mlua signature parity.
+    ///
+    /// # Safety
+    /// Provided for parity with mlua's `unsafe_new`, which can open libraries
+    /// that allow loading native code. luaur's Luau base library does not expose
+    /// such facilities, so this is in practice as safe as [`Lua::new`]; the
+    /// `unsafe` marker is retained to match mlua's signature.
+    pub unsafe fn unsafe_new() -> Lua {
+        Lua::new()
+    }
+
+    /// Create a new Lua state opening the libraries selected by `libs`, with the
+    /// behavioral `options`. Mirrors `mlua::Lua::new_with`.
+    ///
+    /// **DEVIATION:** luaur opens the Luau base libraries as a unit, so any
+    /// non-empty `libs` opens the full standard library and [`StdLib::NONE`]
+    /// opens nothing (see [`StdLib`]). `options` is recorded on the VM (currently
+    /// only `catch_rust_panics` is observable).
+    pub fn new_with(libs: crate::options::StdLib, options: crate::options::LuaOptions) -> Result<Lua> {
+        luaur_common::set_all_flags(true);
+        unsafe {
+            let state = lua_l_newstate();
+            assert!(!state.is_null(), "lua_l_newstate returned null");
+            if !libs.is_none() {
+                lua_l_openlibs(state);
+            }
+            let lua = Lua {
+                inner: XRc::new(LuaInner { state, owned: true }),
+                _not_sync: NOT_SYNC,
+            };
+            lua.set_catch_rust_panics(options.catch_rust_panics);
+            Ok(lua)
+        }
+    }
+
     /// The raw state pointer. Internal use only.
     #[inline]
     pub(crate) fn state(&self) -> *mut lua_State {
@@ -170,6 +214,40 @@ impl Lua {
 impl Default for Lua {
     fn default() -> Self {
         Lua::new()
+    }
+}
+
+impl Lua {
+    /// A non-owning, weak handle to this VM. Mirrors `mlua::Lua::weak`.
+    ///
+    /// The [`WeakLua`] does not keep the VM alive; it can be upgraded back to a
+    /// strong [`Lua`] only while at least one strong handle still exists.
+    pub fn weak(&self) -> WeakLua {
+        WeakLua(XRc::downgrade(&self.inner))
+    }
+}
+
+/// A weak handle to a [`Lua`] instance. Mirrors `mlua::WeakLua`.
+///
+/// Holds a non-owning reference to the shared VM interior; upgrade it to a
+/// strong [`Lua`] with [`WeakLua::try_upgrade`] / [`WeakLua::upgrade`].
+#[derive(Clone)]
+pub struct WeakLua(pub(crate) XWeak<LuaInner>);
+
+impl WeakLua {
+    /// Try to obtain a strong [`Lua`] handle. Returns `None` if the VM has
+    /// already been destroyed. Mirrors `mlua::WeakLua::try_upgrade`.
+    pub fn try_upgrade(&self) -> Option<Lua> {
+        self.0.upgrade().map(|inner| Lua {
+            inner,
+            _not_sync: NOT_SYNC,
+        })
+    }
+
+    /// Obtain a strong [`Lua`] handle, panicking if the VM has been destroyed.
+    /// Mirrors `mlua::WeakLua::upgrade`.
+    pub fn upgrade(&self) -> Lua {
+        self.try_upgrade().expect("Lua instance is destroyed")
     }
 }
 
@@ -283,6 +361,28 @@ impl Lua {
         create_callback_function(self, boxed)
     }
 
+    /// Create a Lua function from a Rust **mutable** closure.
+    ///
+    /// Mirrors `mlua::Lua::create_function_mut`. The closure is guarded by a
+    /// [`RefCell`](std::cell::RefCell); a re-entrant call (the callback running
+    /// Lua that calls the same callback again) surfaces as
+    /// [`Error::RecursiveMutCallback`](crate::Error::RecursiveMutCallback)
+    /// rather than allowing mutable aliasing.
+    pub fn create_function_mut<F, A, R>(&self, func: F) -> Result<Function>
+    where
+        F: FnMut(&Lua, A) -> Result<R> + MaybeSend + 'static,
+        A: FromLuaMulti,
+        R: IntoLuaMulti,
+    {
+        let func = std::cell::RefCell::new(func);
+        self.create_function(move |lua, args| {
+            let mut borrow = func
+                .try_borrow_mut()
+                .map_err(|_| Error::RecursiveMutCallback)?;
+            (borrow)(lua, args)
+        })
+    }
+
     /// Create userdata wrapping a `T: UserData` value.
     ///
     /// Mirrors `mlua::Lua::create_userdata`.
@@ -388,6 +488,90 @@ impl Lua {
     /// Build a [`MultiValue`] from anything `IntoLuaMulti`.
     pub fn pack_multi(&self, values: impl IntoLuaMulti) -> Result<MultiValue> {
         values.into_lua_multi(self)
+    }
+
+    /// Convert any `FromLuaMulti` from a packed [`MultiValue`]. Mirrors
+    /// `mlua::Lua::unpack_multi` (and `unpack` for the single-value case).
+    pub fn unpack_multi<T: FromLuaMulti>(&self, values: MultiValue) -> Result<T> {
+        T::from_lua_multi(values, self)
+    }
+
+    /// Convert a single Lua [`Value`] to a Rust value. Mirrors `mlua::Lua::unpack`.
+    pub fn unpack<T: crate::traits::FromLua>(&self, value: Value) -> Result<T> {
+        T::from_lua(value, self)
+    }
+
+    /// Coerce a [`Value`] to an integer the way Lua's `tonumber`+integer check
+    /// would (`"1"` -> `Some(1)`, `"1.5"` -> `None`, a non-numeric value ->
+    /// `None`). Mirrors `mlua::Lua::coerce_integer`.
+    pub fn coerce_integer(&self, value: Value) -> Result<Option<crate::value::Integer>> {
+        let state = self.state();
+        unsafe {
+            self.push_value(&value)?;
+            let mut isnum: c_int = 0;
+            let n = lua_tonumberx(state, -1, &mut isnum);
+            lua_pop(state, 1);
+            if isnum == 0 {
+                return Ok(None);
+            }
+            // An integral, in-range float coerces to an integer; otherwise None.
+            if n.fract() == 0.0 && n.is_finite() && n >= i64::MIN as f64 && n <= i64::MAX as f64 {
+                Ok(Some(n as i64))
+            } else {
+                Ok(None)
+            }
+        }
+    }
+
+    /// Coerce a [`Value`] to a float the way Lua's `tonumber` would. Mirrors
+    /// `mlua::Lua::coerce_number`.
+    pub fn coerce_number(&self, value: Value) -> Result<Option<crate::value::Number>> {
+        let state = self.state();
+        unsafe {
+            self.push_value(&value)?;
+            let mut isnum: c_int = 0;
+            let n = lua_tonumberx(state, -1, &mut isnum);
+            lua_pop(state, 1);
+            if isnum == 0 {
+                Ok(None)
+            } else {
+                Ok(Some(n))
+            }
+        }
+    }
+
+    /// Replace the global environment with `globals`. Mirrors
+    /// `mlua::Lua::set_globals`.
+    ///
+    /// In a sandboxed Lua state the globals table is read-only and cannot be
+    /// replaced; this returns a [`Error::RuntimeError`] in that case (matching
+    /// mlua / Luau).
+    pub fn set_globals(&self, globals: Table) -> Result<()> {
+        if self.is_sandboxed() {
+            return Err(Error::runtime(
+                "cannot change globals in a sandboxed Lua state",
+            ));
+        }
+        let state = self.state();
+        unsafe {
+            globals.push_to_stack();
+            lua_replace(state, LUA_GLOBALSINDEX);
+        }
+        Ok(())
+    }
+
+    /// Build a stack traceback string for this VM. Mirrors `mlua::Lua::traceback`.
+    ///
+    /// `msg`, if present, is prepended to the traceback; `level` selects the
+    /// starting stack level. The returned [`LuaString`] holds the traceback as
+    /// produced by `luaL_traceback`.
+    pub fn traceback(&self, msg: Option<&str>, level: usize) -> Result<LuaString> {
+        let state = self.state();
+        unsafe {
+            lua_l_traceback(state, state, msg, level as c_int);
+            // luaL_traceback pushes the resulting string onto the stack.
+            Ok(LuaString::from_ref(self.pop_ref()))
+        }
     }
 }
 

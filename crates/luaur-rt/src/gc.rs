@@ -21,7 +21,7 @@
 //! (incremental) mode, matching the only behavior Luau can honor.
 
 use crate::error::Result;
-use crate::ffi::*;
+use crate::sys::*;
 use crate::state::Lua;
 
 /// Parameters for Luau's incremental GC, mirroring `mlua::state::GcIncParams`.

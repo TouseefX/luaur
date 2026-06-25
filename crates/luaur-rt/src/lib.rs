@@ -85,6 +85,7 @@ compile_error!(
 #[cfg(feature = "async")]
 #[path = "async.rs"]
 mod async_support;
+mod app_data;
 mod buffer;
 mod callback;
 mod chunk;
@@ -92,14 +93,23 @@ mod compiler;
 mod conversion;
 mod debug;
 mod error;
-mod ffi;
+mod exec_raw;
+/// The internal, crate-private luaur C API re-exports (mounted from `ffi.rs`).
+#[path = "ffi.rs"]
+mod sys;
+/// The public, mlua-style `ffi` surface (mounted from `ffi_public.rs`).
+#[path = "ffi_public.rs"]
+pub mod ffi;
 mod function;
 mod gc;
 mod interrupt;
+mod light_userdata;
 mod luau_ext;
 mod memory;
 mod metamethod;
+mod module;
 mod multi;
+mod options;
 mod registry;
 mod scope;
 #[cfg(feature = "serde")]
@@ -119,14 +129,16 @@ pub use chunk::{Chunk, ChunkMode};
 pub use compiler::Compiler;
 pub use error::{Error, ExternalError, ExternalResult, Result};
 pub use interrupt::VmState;
+pub use light_userdata::LightUserData;
 pub use luau_ext::TypeMetatable;
 pub use debug::{Debug, DebugWhat};
-pub use function::{Function, FunctionInfo};
+pub use function::{Function, FunctionInfo, LuaNativeFn};
 pub use metamethod::MetaMethod;
 pub use multi::{MultiValue, Variadic};
+pub use options::{LuaOptions, StdLib};
 pub use registry::RegistryKey;
 pub use scope::Scope;
-pub use state::Lua;
+pub use state::{Lua, WeakLua};
 pub use string::LuaString;
 pub use sync::{MaybeSend, MaybeSync};
 pub use table::{Table, TablePairs, TableSequence};
@@ -138,11 +150,16 @@ pub use traits::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};
 #[cfg(feature = "async")]
 #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
 pub use async_support::AsyncThread;
+pub use app_data::{AppDataRef, AppDataRefMut};
 pub use userdata::{
     AnyUserData, UserData, UserDataFields, UserDataMethods, UserDataRef, UserDataRefMut,
 };
 pub use value::{Integer, Number, Value};
 pub use vector::Vector;
+
+/// `Value::Nil`, re-exported as a bare name (the enum *variant*, so it works in
+/// both value and pattern position). Mirrors `mlua::Nil`.
+pub use value::Value::Nil;
 
 /// The `#[derive(UserData)]` / `#[derive(FromLua)]` procedural derive macros
 /// (mirroring mlua's `macros` feature), re-exported so users can write
@@ -185,6 +202,10 @@ pub mod prelude {
     pub use crate::Variadic as LuaVariadic;
     // `LuaString` already carries the `Lua` prefix.
 }
+
+/// A raw `lua_State` pointer type alias, re-exported at the crate root for
+/// signature parity with `mlua::lua_State`.
+pub use luaur_vm::type_aliases::lua_state::lua_State;
 
 #[cfg(test)]
 mod tests;

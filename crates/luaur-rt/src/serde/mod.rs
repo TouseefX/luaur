@@ -28,7 +28,7 @@ use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 
 use crate::error::Result;
-use crate::ffi::lua_State;
+use crate::sys::lua_State;
 use crate::state::Lua;
 use crate::table::Table;
 use crate::value::Value;

@@ -13,7 +13,7 @@
 use std::io;
 
 use crate::error::Result;
-use crate::ffi::*;
+use crate::sys::*;
 use crate::state::{Lua, LuaRef};
 use crate::sync::{NotSync, XRc, NOT_SYNC};
 

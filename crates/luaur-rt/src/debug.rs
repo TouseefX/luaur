@@ -22,7 +22,7 @@
 
 use std::ffi::CStr;
 
-use crate::ffi::*;
+use crate::sys::*;
 use crate::state::Lua;
 
 /// What kind of function an activation record refers to. Mirrors the relevant

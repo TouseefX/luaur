@@ -25,7 +25,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::error::{Error, Result};
-use crate::ffi::*;
+use crate::sys::*;
 use crate::state::Lua;
 
 /// The per-VM allocator control block, pointed to by `global_State::ud` once a

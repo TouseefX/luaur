@@ -9,7 +9,7 @@
 
 use crate::error::Result;
 use crate::function::Function;
-use crate::ffi::*;
+use crate::sys::*;
 use crate::state::Lua;
 use crate::string::LuaString;
 use crate::table::Table;
@@ -40,6 +40,8 @@ pub enum Value {
     Table(Table),
     /// A function (Lua or Rust).
     Function(Function),
+    /// A raw-pointer light userdata. Mirrors `mlua::Value::LightUserData`.
+    LightUserData(crate::light_userdata::LightUserData),
     /// A userdata value with typed Rust-side borrowing.
     UserData(crate::userdata::AnyUserData),
     /// A thread (coroutine).
@@ -67,6 +69,7 @@ impl Value {
             Value::String(_) => "string",
             Value::Table(_) => "table",
             Value::Function(_) => "function",
+            Value::LightUserData(_) => "userdata",
             Value::UserData(_) => "userdata",
             Value::Thread(_) => "thread",
             Value::Vector(_) => "vector",
@@ -251,6 +254,7 @@ impl Value {
     /// values. Mirrors `mlua::Value::to_pointer`.
     pub fn to_pointer(&self) -> *const std::ffi::c_void {
         match self {
+            Value::LightUserData(lud) => lud.0 as *const std::ffi::c_void,
             Value::String(s) => s.to_pointer(),
             Value::Table(t) => t.to_pointer(),
             Value::Function(f) => f.to_pointer(),
@@ -288,6 +292,9 @@ impl Value {
             // Vector is an inline value type: format it directly (mlua does the
             // same, via `Vector`'s `Display`).
             Value::Vector(v) => Ok(v.to_string()),
+            // Light userdata: format the pointer, matching Lua's `tostring`
+            // (`userdata: 0x...`).
+            Value::LightUserData(lud) => Ok(format!("userdata: {:p}", lud.0)),
             // Reference types: ask the VM (honors `__tostring`).
             Value::String(s) => s.to_str(),
             other => {
@@ -324,6 +331,7 @@ impl PartialEq for Value {
         match (self, other) {
             (Value::Nil, Value::Nil) => true,
             (Value::Boolean(a), Value::Boolean(b)) => a == b,
+            (Value::LightUserData(a), Value::LightUserData(b)) => a == b,
             // Numbers compare by value across the integer/float subtypes,
             // matching Lua's `==` (1 == 1.0).
             (Value::Integer(a), Value::Integer(b)) => a == b,
@@ -360,6 +368,8 @@ pub(crate) fn push_value(lua: &Lua, value: &Value) -> Result<()> {
         match value {
             Value::Nil => lua_pushnil(state),
             Value::Boolean(b) => lua_pushboolean(state, *b as c_int),
+            // Light userdata: push the raw pointer with tag 0.
+            Value::LightUserData(lud) => lua_pushlightuserdatatagged(state, lud.0, 0),
             Value::Integer(i) => lua_pushnumber(state, *i as f64),
             Value::Number(n) => lua_pushnumber(state, *n),
             Value::String(s) => s.push_to_stack(),
@@ -394,6 +404,10 @@ pub(crate) fn value_from_stack(lua: &Lua, idx: c_int) -> Result<Value> {
         let value = match t {
             x if x == ttype::NIL || x == ttype::NONE => Value::Nil,
             x if x == ttype::BOOLEAN => Value::Boolean(lua_toboolean(state, idx) != 0),
+            x if x == ttype::LIGHTUSERDATA => {
+                let p = lua_tolightuserdata(state, idx);
+                Value::LightUserData(crate::light_userdata::LightUserData(p))
+            }
             x if x == ttype::NUMBER => {
                 let n = lua_tonumberx(state, idx, core::ptr::null_mut());
                 if is_exact_integer(n) {

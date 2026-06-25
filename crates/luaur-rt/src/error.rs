@@ -103,6 +103,15 @@ pub enum Error {
     /// A [`crate::RegistryKey`] was used with a [`crate::Lua`] that does not
     /// own it. Mirrors `mlua::Error::MismatchedRegistryKey`.
     MismatchedRegistryKey,
+    /// A `create_function_mut` / `create_userdata` mutable callback was invoked
+    /// re-entrantly while a previous invocation still held the `&mut`. The inner
+    /// `RefCell` borrow failed, which we surface as this variant rather than
+    /// allowing mutable aliasing. Mirrors `mlua::Error::RecursiveMutCallback`.
+    RecursiveMutCallback,
+    /// A Rust panic was raised across a `pcall` boundary, caught and resumed
+    /// once; a later attempt to re-raise/observe it failed because the panic was
+    /// already resumed. Mirrors `mlua::Error::PreviouslyResumedPanic`.
+    PreviouslyResumedPanic,
     /// An error originating outside Lua, wrapped via [`Error::external`].
     ExternalError(Arc<DynStdError>),
     /// A serialization (Rust -> Lua) error produced by the `serde` feature.
@@ -194,6 +203,12 @@ impl fmt::Display for Error {
             Error::CoroutineUnresumable => write!(f, "cannot resume this coroutine"),
             Error::MismatchedRegistryKey => {
                 write!(f, "registry key used with the wrong Lua instance")
+            }
+            Error::RecursiveMutCallback => {
+                write!(f, "mutable callback called recursively")
+            }
+            Error::PreviouslyResumedPanic => {
+                write!(f, "previously resumed panic returned again")
             }
             Error::ExternalError(err) => write!(f, "{err}"),
             #[cfg(feature = "serde")]

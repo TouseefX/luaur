@@ -206,6 +206,83 @@ userdata (`create_ser_userdata*` / `wrap_ser` / `Serialize for AnyUserData`).
 | `tests/mlua_userdata_macro.rs` | `tests/userdata_macro.rs` (derive field + `FromLua` subset, gated `feature = "macros"`) |
 | `tests/mlua_async.rs`      | `tests/async.rs` (portable subset, gated `feature = "async"`) |
 | `tests/mlua_send.rs`       | `tests/send.rs` (spirit-port + `Send`/`!Sync` assertions, gated `feature = "send"`) |
+| `tests/mlua_core.rs`       | `tests/tests.rs` (the big core integration file) |
+| `tests/mlua_types.rs`      | `tests/types.rs` (light-userdata + per-type metatables) |
+| `tests/mlua_compile.rs`    | `tests/compile.rs` (trybuild UI test; deferred — see below) |
+
+## Phase 5b — the `tests.rs` / `types.rs` / `compile.rs` port
+
+Phase 5b ported mlua's three remaining top-level test files that had no luaur-rt
+counterpart. To keep the "% of mlua tests passing **unmodified**" figure honest,
+each test was copied verbatim (import-swap only); where a test exercised a
+luaur-rt API that did not yet exist, that API was **implemented** (original code
+over luaur's C API) rather than the test being skipped. New luaur-rt API added in
+this pass: `WeakLua` / `Lua::weak`; `StdLib` / `LuaOptions` / `Lua::new_with` /
+`Lua::unsafe_new`; the named-registry API (`set_named_registry_value` /
+`named_registry_value` / `unset_named_registry_value`) and
+`expire_registry_values`; the typed, borrow-checked application-data API
+(`set_app_data` / `try_set_app_data` / `app_data_ref` / `app_data_mut` /
+`try_app_data_ref` / `try_app_data_mut` / `remove_app_data`, with `AppDataRef` /
+`AppDataRefMut`); module registration (`register_module` / `unload_module` plus a
+minimal alias-resolving `require`); `Lua::traceback`; `Lua::set_globals`;
+`Lua::coerce_integer` / `coerce_number` / `unpack` / `unpack_multi`;
+`Lua::create_function_mut`; `Lua::exec_raw` / `create_c_function`; the public
+`luaur_rt::ffi` raw-API surface and `luaur_rt::lua_State`; `Function::wrap` (with
+the `LuaNativeFn` trait); the `LightUserData` value type and `Value::LightUserData`
+variant; the extended per-type metatable surface (`set_type_metatable` /
+`type_metatable` for `bool` / `Number` / `LuaString` / `Function` / `Thread` /
+`LightUserData`, alongside the existing `Vector`); `i128` / `u128` conversions;
+a `T: UserData` → `IntoLua` blanket; the `Nil` re-export; and the
+`Error::RecursiveMutCallback` / `Error::PreviouslyResumedPanic` variants.
+
+Two genuine luaur-rt soundness/robustness fixes were found by these verbatim
+tests and are pinned as regression coverage: (1) a Rust callback returning a very
+large result list overflowed the Lua stack and tripped a fatal VM assertion
+(SIGTRAP) — the callback trampoline now reserves stack space first and raises a
+catchable error instead (`test_too_many_returns`); (2) float→integer conversion
+saturated through `i64`, so a value beyond `i64` range (e.g. `2^64` for `u64`)
+was silently accepted — it is now range-checked in `i128` space and correctly
+rejected (`test_num_conversion`). Integer `FromLua` was also aligned to Luau's
+f64-backed `tointeger`, which **truncates** a fractional float rather than
+rejecting it.
+
+Per-file disposition (ported = verbatim, import-swap only; deferred = kept as a
+`*_deferred` pin asserting the actual luaur behavior with a `// DEVIATION` note;
+omitted = a test mlua itself gates off the `luau` feature, or that is otherwise
+inapplicable to a Luau backend):
+
+* `tests/mlua_core.rs` (from `tests/tests.rs`): **36 ported**, **6 deferred**,
+  **7 omitted**.
+  * Deferred: `test_load_mode` (luaur auto-loads text; no binary `ChunkMode`),
+    `test_panic` (luaur catches a callback panic into a catchable Lua error
+    rather than re-propagating it), `test_c_function` (luaur's `lua_CFunction`
+    is a pure-Rust `unsafe fn`, not `extern "C-unwind"`), `test_inspect_stack`
+    (luaur's `inspect_stack(level) -> Option<Debug>` is non-closure with a
+    smaller `Debug`), `test_traceback` (luaur's `luaL_traceback` emits a
+    different text format — no "stack traceback:" header), and
+    `test_registry_value_reuse` (luaur transiently consumes a registry slot to
+    build the stored value, shifting the exact slot-reuse pattern). Under the
+    `send` feature, `test_multi_thread` is likewise deferred because it requires
+    `Lua: Sync`, which luaur-rt deliberately lacks (move-only, not shared); the
+    move-the-VM equivalent is pinned instead.
+  * Omitted (mlua gates these off the `luau` feature, or they are LuaJIT/Lua-5.x
+    only): `test_safety`, `test_preload_module`, `test_get_or_init_from_ptr`
+    (all `#[cfg(not(feature = "luau"))]` in mlua); `test_context_thread_51`
+    (Lua 5.1 / LuaJIT only); `test_jit_version`, `test_luajit_cdata` (LuaJIT
+    only); `test_warnings` (Lua 5.4/5.5 `warn` only — Luau has no `warn`).
+  * One verbatim test keeps a single `// DEVIATION`-noted line:
+    `test_num_conversion` pins luaur's `-0.0 -> +0.0` normalization;
+    `test_drop_registry_value` swaps the unregistered `collectgarbage("collect")`
+    Lua call for the `Lua::gc_collect` analog (same gap as `collectgarbage` /
+    `loadstring` noted in `tests/mlua_luau.rs`).
+* `tests/mlua_types.rs` (from `tests/types.rs`): **7 ported, 0 deferred,
+  0 omitted** — all light-userdata and per-type-metatable tests pass verbatim.
+* `tests/mlua_compile.rs` (from `tests/compile.rs`): **0 ported, 1 deferred,
+  0 omitted** — mlua's single `test_compilation` is an `#[ignore]`d `trybuild`
+  UI test bound to mlua-internal `tests/compile/*.rs` fixtures and committed
+  `.stderr` snapshots; it is kept `#[ignore]`d with a header explaining that the
+  compile-time guarantees are instead asserted by the `send`/`scope` behavioral
+  tests.
 
 ## mlua MIT License
 

@@ -28,7 +28,7 @@ use std::marker::PhantomData;
 
 use crate::callback::{create_callback_function, BoxedCallback};
 use crate::error::{Error, Result};
-use crate::ffi::*;
+use crate::sys::*;
 use crate::state::{Lua, LuaRef};
 use crate::sync::{MaybeSend, MaybeSync, NotSync, XRc, NOT_SYNC};
 use crate::traits::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};
@@ -346,6 +346,18 @@ impl PartialEq for AnyUserData {
     fn eq(&self, other: &Self) -> bool {
         // Pointer identity (matches mlua): same underlying userdata object.
         self.to_pointer() == other.to_pointer()
+    }
+}
+
+// Any `T: UserData` value converts into Lua by wrapping it in a fresh userdata.
+// Mirrors mlua's `impl<T: UserData + MaybeSend + MaybeSync + 'static> IntoLua`.
+// This is what lets `create_registry_value(MyUserdata(..))`,
+// `table.set("k", MyUserdata(..))`, etc. accept a userdata value directly. It
+// coexists with the concrete `IntoLua` impls below because none of those
+// (local) types implement `UserData`.
+impl<T: UserData + crate::sync::MaybeSend + crate::sync::MaybeSync + 'static> IntoLua for T {
+    fn into_lua(self, lua: &Lua) -> Result<Value> {
+        Ok(Value::UserData(lua.create_userdata(self)?))
     }
 }
 

@@ -1,7 +1,7 @@
 //! The [`Table`] handle. Mirrors `mlua::Table`.
 
 use crate::error::Result;
-use crate::ffi::*;
+use crate::sys::*;
 use crate::state::{Lua, LuaRef};
 use crate::sync::{NotSync, XRc, NOT_SYNC};
 use crate::traits::{FromLua, IntoLua};

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::compiler::Compiler;
 use crate::error::{Error, Result};
-use crate::ffi::*;
+use crate::sys::*;
 use crate::state::Lua;
 use crate::table::Table;
 use crate::thread::Thread;
@@ -19,6 +19,16 @@ thread_local! {
 
     /// Per-VM compiler installed via `Lua::set_compiler`, keyed by global state.
     static VM_COMPILERS: RefCell<HashMap<*mut core::ffi::c_void, Compiler>> =
+        RefCell::new(HashMap::new());
+
+    /// Per-VM `catch_rust_panics` option (recorded from `LuaOptions`), keyed by
+    /// global state. Currently recorded for parity; see `set_catch_rust_panics`.
+    static VM_CATCH_PANICS: RefCell<HashMap<*mut core::ffi::c_void, bool>> =
+        RefCell::new(HashMap::new());
+
+    /// Per-VM "is sandboxed" flag, keyed by global state. Mirrors mlua's
+    /// `extra.sandboxed`; consulted by `Lua::set_globals`.
+    static VM_SANDBOXED: RefCell<HashMap<*mut core::ffi::c_void, bool>> =
         RefCell::new(HashMap::new());
 }
 
@@ -43,6 +53,9 @@ impl Lua {
     pub fn sandbox(&self, enabled: bool) -> Result<()> {
         let state = self.state();
         let key = unsafe { global_key(state) };
+        VM_SANDBOXED.with(|m| {
+            m.borrow_mut().insert(key, enabled);
+        });
         unsafe {
             if enabled {
                 // Save the original globals table so we can restore it later.
@@ -113,6 +126,29 @@ impl Lua {
         });
     }
 
+    /// Record the `catch_rust_panics` behavioral option for this VM.
+    ///
+    /// **DEVIATION:** luaur-rt's callback trampoline always catches a Rust panic
+    /// and converts it into a catchable Lua error (so the VM is never left
+    /// half-unwound). The mlua option that lets a panic propagate as a Rust
+    /// unwind across the VM boundary is therefore recorded here but not enforced
+    /// — see the deferred `test_panic` in `tests/mlua_core.rs`.
+    pub(crate) fn set_catch_rust_panics(&self, enabled: bool) {
+        let state = self.state();
+        let key = unsafe { global_key(state) };
+        VM_CATCH_PANICS.with(|m| {
+            m.borrow_mut().insert(key, enabled);
+        });
+    }
+
+    /// Whether this VM is currently sandboxed (set by [`Lua::sandbox`]). Mirrors
+    /// mlua's `extra.sandboxed` flag; consulted by [`Lua::set_globals`].
+    pub(crate) fn is_sandboxed(&self) -> bool {
+        let state = self.state();
+        let key = unsafe { global_key(state) };
+        VM_SANDBOXED.with(|m| m.borrow().get(&key).copied().unwrap_or(false))
+    }
+
     /// The VM-default compiler installed via [`Lua::set_compiler`], if any.
     pub(crate) fn vm_compiler(&self) -> Option<Compiler> {
         let state = self.state();
@@ -123,12 +159,20 @@ impl Lua {
     /// Set (or clear) the metatable shared by all values of a Luau built-in
     /// type `T`. Mirrors `mlua::Lua::set_type_metatable`.
     ///
-    /// Currently implemented for [`Vector`](crate::Vector) (the only built-in
-    /// type whose shared metatable mlua's tests exercise). Setting it installs
-    /// a metatable in the VM's per-type metatable slot, so e.g. `v.x`/`v:method`
+    /// Implemented for [`Vector`](crate::Vector), `bool`, [`Number`](f64),
+    /// [`LuaString`](crate::LuaString), [`Function`](crate::Function),
+    /// [`Thread`](crate::Thread), and
+    /// [`LightUserData`](crate::LightUserData). Setting it installs a metatable
+    /// in the VM's global per-type metatable slot, so e.g. `v.x`/`v:method`
     /// dispatch through it.
     pub fn set_type_metatable<T: TypeMetatable>(&self, metatable: Option<Table>) {
         T::set_type_metatable(self, metatable);
+    }
+
+    /// The metatable shared by all values of a Luau built-in type `T`, if one
+    /// has been installed. Mirrors `mlua::Lua::type_metatable`.
+    pub fn type_metatable<T: TypeMetatable>(&self) -> Option<Table> {
+        T::type_metatable(self)
     }
 
     /// Set a Luau fast-flag (FFlag) by name. Mirrors `mlua::Lua::set_fflag`.
@@ -160,30 +204,114 @@ impl Thread {
 /// Luau built-in types that have a shared, per-type metatable settable via
 /// [`Lua::set_type_metatable`]. Mirrors mlua's sealed `LuauType` trait.
 pub trait TypeMetatable: private::Sealed {
+    /// Push a representative value of this type onto the stack (so the VM's
+    /// `lua_setmetatable`/`lua_getmetatable` operate on the type's global slot).
+    #[doc(hidden)]
+    unsafe fn push_representative(state: *mut lua_State);
+
     /// Install (or clear) the shared metatable for this type.
-    fn set_type_metatable(lua: &Lua, metatable: Option<Table>);
+    fn set_type_metatable(lua: &Lua, metatable: Option<Table>) {
+        let state = lua.state();
+        unsafe {
+            Self::push_representative(state);
+            match metatable {
+                Some(mt) => mt.push_to_stack(),
+                None => crate::sys::lua_pushnil(state),
+            }
+            // For a non-table/non-userdata value, `lua_setmetatable` stores the
+            // metatable in the VM's global per-type slot (`g->mt[type]`).
+            crate::sys::lua_setmetatable(state, -2);
+            // Pop the representative value left on the stack.
+            crate::sys::lua_pop(state, 1);
+        }
+    }
+
+    /// The shared metatable for this type, if installed.
+    fn type_metatable(lua: &Lua) -> Option<Table> {
+        let state = lua.state();
+        unsafe {
+            Self::push_representative(state);
+            let has = crate::sys::lua_getmetatable(state, -1);
+            if has == 0 {
+                // No metatable: pop the representative value.
+                crate::sys::lua_pop(state, 1);
+                return None;
+            }
+            // stack: [value, metatable]
+            let mt = Table::from_ref(lua.pop_ref());
+            crate::sys::lua_pop(state, 1); // pop the representative value
+            Some(mt)
+        }
+    }
 }
 
 mod private {
     pub trait Sealed {}
     impl Sealed for crate::vector::Vector {}
+    impl Sealed for bool {}
+    impl Sealed for f64 {}
+    impl Sealed for crate::string::LuaString {}
+    impl Sealed for crate::function::Function {}
+    impl Sealed for crate::thread::Thread {}
+    impl Sealed for crate::light_userdata::LightUserData {}
 }
 
 impl TypeMetatable for crate::vector::Vector {
-    fn set_type_metatable(lua: &Lua, metatable: Option<Table>) {
-        let state = lua.state();
+    unsafe fn push_representative(state: *mut lua_State) {
         unsafe {
-            // Push a vector value, then the metatable (or nil), and call
-            // `lua_setmetatable`: for a non-table/non-userdata value it stores
-            // the metatable in the VM's global per-type slot (`g->mt[VECTOR]`).
-            crate::ffi::lua_pushvector_lua_state_f32_f32_f32_f32(state, 0.0, 0.0, 0.0, 0.0);
-            match metatable {
-                Some(mt) => mt.push_to_stack(),
-                None => crate::ffi::lua_pushnil(state),
-            }
-            crate::ffi::lua_setmetatable(state, -2);
-            // Pop the vector value left on the stack.
-            crate::ffi::lua_pop(state, 1);
+            crate::sys::lua_pushvector_lua_state_f32_f32_f32_f32(state, 0.0, 0.0, 0.0, 0.0);
         }
     }
+}
+
+impl TypeMetatable for bool {
+    unsafe fn push_representative(state: *mut lua_State) {
+        unsafe { crate::sys::lua_pushboolean(state, 0) }
+    }
+}
+
+impl TypeMetatable for f64 {
+    unsafe fn push_representative(state: *mut lua_State) {
+        unsafe { crate::sys::lua_pushnumber(state, 0.0) }
+    }
+}
+
+impl TypeMetatable for crate::string::LuaString {
+    unsafe fn push_representative(state: *mut lua_State) {
+        unsafe {
+            let s = c"";
+            crate::sys::lua_pushlstring(state, s.as_ptr() as *const c_char, 0);
+        }
+    }
+}
+
+impl TypeMetatable for crate::function::Function {
+    unsafe fn push_representative(state: *mut lua_State) {
+        // Push a throwaway C function so `lua_setmetatable` targets the global
+        // function-type slot.
+        unsafe {
+            crate::sys::lua_pushcclosurek(state, Some(noop_cfn), c"".as_ptr(), 0, None);
+        }
+    }
+}
+
+impl TypeMetatable for crate::thread::Thread {
+    unsafe fn push_representative(state: *mut lua_State) {
+        // A fresh thread targets the global thread-type slot.
+        unsafe {
+            crate::sys::lua_newthread(state);
+        }
+    }
+}
+
+impl TypeMetatable for crate::light_userdata::LightUserData {
+    unsafe fn push_representative(state: *mut lua_State) {
+        crate::sys::lua_pushlightuserdatatagged(state, core::ptr::null_mut(), 0);
+    }
+}
+
+/// A do-nothing C function used as the representative value for the
+/// function-type metatable slot.
+unsafe fn noop_cfn(_state: *mut lua_State) -> c_int {
+    0
 }

@@ -1,10 +1,10 @@
 //! The [`Function`] handle. Mirrors `mlua::Function`.
 
 use crate::error::Result;
-use crate::ffi::*;
+use crate::sys::*;
 use crate::multi::MultiValue;
 use crate::state::{Lua, LuaRef};
-use crate::sync::{NotSync, XRc, NOT_SYNC};
+use crate::sync::{MaybeSend, NotSync, XRc, NOT_SYNC};
 use crate::traits::{FromLuaMulti, IntoLuaMulti};
 
 /// A handle to a callable Lua value (a Lua closure or a Rust function).
@@ -223,6 +223,28 @@ impl Function {
         })
     }
 
+    /// Wrap a plain Rust closure as a value convertible into a Lua function.
+    ///
+    /// Mirrors `mlua::Function::wrap`. Unlike
+    /// [`Lua::create_function`](crate::Lua::create_function), the closure does
+    /// **not** receive the [`Lua`] and its arity is free (`||`, `|a|`, `|a, b|`,
+    /// … mapped from the Lua call arguments). The returned value is
+    /// [`IntoLua`](crate::IntoLua) so it can be stored directly (e.g.
+    /// `table.set("f", Function::wrap(|a, b| Ok::<_, Error>(a + b)))`). A
+    /// returned `Err` is raised as a Lua error.
+    pub fn wrap<F, A, R, E>(func: F) -> impl crate::traits::IntoLua
+    where
+        F: LuaNativeFn<A, Output = std::result::Result<R, E>> + MaybeSend + 'static,
+        A: FromLuaMulti,
+        R: IntoLuaMulti,
+        E: crate::error::ExternalError,
+    {
+        WrappedFunction {
+            func,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
     /// A raw pointer identifying this function (for identity comparison).
     /// Mirrors `mlua::Function::to_pointer`.
     pub fn to_pointer(&self) -> *const std::ffi::c_void {
@@ -399,5 +421,73 @@ impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
         // Pointer identity (matches mlua): same underlying function object.
         self.to_pointer() == other.to_pointer()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// LuaNativeFn: arity-abstracting sync closure trait (mirrors mlua)
+// ---------------------------------------------------------------------------
+
+/// A function/closure callable with a tuple of `FromLuaMulti` arguments,
+/// abstracting over arity. Mirrors `mlua::LuaNativeFn`. Lets
+/// [`Function::wrap`] accept `||`, `|a|`, `|a, b|`, … closures uniformly (the
+/// closure receives the converted args directly, not the [`Lua`]).
+pub trait LuaNativeFn<A: FromLuaMulti> {
+    /// The closure's return type (typically `Result<R, E>`).
+    type Output;
+
+    /// Invoke the closure with the converted arguments.
+    fn call(&self, args: A) -> Self::Output;
+}
+
+macro_rules! impl_lua_native_fn {
+    ($($A:ident),*) => {
+        impl<FN, $($A,)* R> LuaNativeFn<($($A,)*)> for FN
+        where
+            FN: Fn($($A,)*) -> R,
+            ($($A,)*): FromLuaMulti,
+        {
+            type Output = R;
+
+            #[allow(non_snake_case)]
+            fn call(&self, args: ($($A,)*)) -> R {
+                let ($($A,)*) = args;
+                self($($A,)*)
+            }
+        }
+    };
+}
+
+impl_lua_native_fn!();
+impl_lua_native_fn!(A);
+impl_lua_native_fn!(A, B);
+impl_lua_native_fn!(A, B, C);
+impl_lua_native_fn!(A, B, C, D);
+impl_lua_native_fn!(A, B, C, D, E);
+impl_lua_native_fn!(A, B, C, D, E, F);
+impl_lua_native_fn!(A, B, C, D, E, F, G);
+impl_lua_native_fn!(A, B, C, D, E, F, G, H);
+
+/// A plain closure not yet bound to a [`Lua`]. Becomes a Lua function (via
+/// [`Lua::create_function`]) when converted with [`IntoLua`]. Backs
+/// [`Function::wrap`].
+struct WrappedFunction<F, A, R, E> {
+    func: F,
+    _marker: std::marker::PhantomData<fn(A) -> (R, E)>,
+}
+
+impl<F, A, R, E> crate::traits::IntoLua for WrappedFunction<F, A, R, E>
+where
+    F: LuaNativeFn<A, Output = std::result::Result<R, E>> + MaybeSend + 'static,
+    A: FromLuaMulti,
+    R: IntoLuaMulti,
+    E: crate::error::ExternalError,
+{
+    fn into_lua(self, lua: &Lua) -> Result<crate::value::Value> {
+        let func = self.func;
+        let f = lua.create_function(move |_lua, args: A| {
+            func.call(args).map_err(crate::error::ExternalError::into_lua_err)
+        })?;
+        Ok(crate::value::Value::Function(f))
     }
 }

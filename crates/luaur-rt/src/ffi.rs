@@ -1,9 +1,10 @@
-//! Thin, centralized imports of the luaur C API we build on.
+//! Thin, centralized imports of the luaur C API we build on (internal plumbing).
 //!
 //! Every raw `lua_*` function/type/constant used by `luaur-rt` is re-exported
 //! from here, so the rest of the crate has a single place to look and we keep
 //! the (long) import paths in one module. Nothing in here is part of the public
-//! API.
+//! API; the small mlua-style public `ffi` surface lives in `crate::sys` (the
+//! `ffi.rs` *public* module), this one is mounted privately as `crate::sys`.
 
 pub(crate) use core::ffi::{c_char, c_int, c_void};
 
@@ -63,6 +64,18 @@ pub(crate) use luaur_vm::functions::lua_setsafeenv::lua_setsafeenv;
 // ---- metatable-aware tostring --------------------------------------------
 pub(crate) use luaur_vm::functions::lua_l_tolstring::lua_l_tolstring;
 
+// ---- traceback -----------------------------------------------------------
+pub(crate) use luaur_vm::functions::lua_l_traceback::lua_l_traceback;
+
+// ---- named registry + field access ---------------------------------------
+pub(crate) use luaur_vm::functions::lua_getfield::lua_getfield;
+pub(crate) use luaur_vm::functions::lua_setfield::lua_setfield;
+pub(crate) use luaur_vm::macros::lua_registryindex::LUA_REGISTRYINDEX;
+
+// ---- light userdata ------------------------------------------------------
+pub(crate) use luaur_vm::functions::lua_pushlightuserdatatagged::lua_pushlightuserdatatagged;
+pub(crate) use luaur_vm::functions::lua_tolightuserdata::lua_tolightuserdata;
+
 // ---- buffers / vectors (Luau) --------------------------------------------
 pub(crate) use luaur_vm::functions::lua_newbuffer::lua_newbuffer;
 pub(crate) use luaur_vm::functions::lua_pushvector_lapi::lua_pushvector_lua_state_f32_f32_f32_f32;
@@ -114,11 +127,7 @@ pub(crate) use luaur_vm::functions::lua_pushinteger::lua_pushinteger;
 #[cfg(feature = "async")]
 pub(crate) use luaur_vm::functions::lua_rawgeti::lua_rawgeti;
 #[cfg(feature = "async")]
-pub(crate) use luaur_vm::functions::lua_pushlightuserdatatagged::lua_pushlightuserdatatagged;
-#[cfg(feature = "async")]
 pub(crate) use luaur_vm::functions::lua_tointegerx::lua_tointegerx;
-#[cfg(feature = "async")]
-pub(crate) use luaur_vm::functions::lua_tolightuserdata::lua_tolightuserdata;
 
 /// Lua type tags (subset we care about). The VM returns these as `c_int` from
 /// [`lua_type`]; we keep our own constants to avoid leaking the VM enum.
@@ -127,6 +136,7 @@ pub(crate) mod ttype {
     pub const NONE: c_int = -1;
     pub const NIL: c_int = 0;
     pub const BOOLEAN: c_int = 1;
+    pub const LIGHTUSERDATA: c_int = 2;
     pub const VECTOR: c_int = 5;
     pub const NUMBER: c_int = 3;
     pub const STRING: c_int = 6;

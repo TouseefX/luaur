@@ -35,6 +35,16 @@ pub(crate) type XRc<T> = std::sync::Arc<T>;
 #[cfg(not(feature = "send"))]
 pub(crate) type XRc<T> = std::rc::Rc<T>;
 
+/// The weak counterpart of [`XRc`]: `Weak` from `Arc`/`Rc` depending on `send`.
+/// Used by [`WeakLua`](crate::state::WeakLua) to hold a non-owning reference to
+/// the VM's shared interior. Mirrors mlua's `XWeak`.
+#[cfg(feature = "send")]
+pub(crate) type XWeak<T> = std::sync::Weak<T>;
+
+/// See the `send`-gated variant above.
+#[cfg(not(feature = "send"))]
+pub(crate) type XWeak<T> = std::rc::Weak<T>;
+
 /// A trait that adds a `Send` requirement **iff** the `send` feature is enabled.
 ///
 /// Mirrors `mlua::MaybeSend`. It is applied to every Rust closure that gets

@@ -62,7 +62,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll, Waker};
 
 use crate::error::{Error, Result};
-use crate::ffi::*;
+use crate::sys::*;
 use crate::function::Function;
 use crate::multi::MultiValue;
 use crate::state::Lua;

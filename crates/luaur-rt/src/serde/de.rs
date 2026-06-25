@@ -174,6 +174,7 @@ impl<'de> serde::Deserializer<'de> for Deserializer {
             Value::Buffer(ref buf) => visitor.visit_bytes(buf.as_slice()),
             Value::Function(_)
             | Value::Thread(_)
+            | Value::LightUserData(_)
             | Value::UserData(_)
             | Value::Error(_) => {
                 if self.options.deny_unsupported_types {

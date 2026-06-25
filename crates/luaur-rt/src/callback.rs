@@ -32,7 +32,7 @@ use std::any::TypeId;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use crate::error::{Error, Result};
-use crate::ffi::*;
+use crate::sys::*;
 use crate::function::Function;
 use crate::multi::MultiValue;
 use crate::state::Lua;
@@ -90,7 +90,17 @@ unsafe extern "C" fn wrapped_error_dtor(ptr: *mut c_void) {
 /// scope-destruction errors qualify; everything else keeps the string path to
 /// preserve backward-compatible `RuntimeError` behavior.
 pub(crate) fn is_structured(err: &Error) -> bool {
-    matches!(err, Error::CallbackDestructed | Error::UserDataDestructed)
+    match err {
+        Error::CallbackDestructed
+        | Error::UserDataDestructed
+        | Error::RecursiveMutCallback => true,
+        // A `CallbackError` produced when a *nested* structured error crossed a
+        // `pcall` boundary is itself re-raised structured, so each boundary adds
+        // one `CallbackError` wrapper layer — mirroring mlua's nested
+        // `CallbackError { cause: CallbackError { cause: .. } }`.
+        Error::CallbackError { cause, .. } => is_structured(cause),
+        _ => false,
+    }
 }
 
 /// Push a structured [`Error`] as a wrapped-error userdata error object and
@@ -199,8 +209,15 @@ unsafe fn trampoline(state: *mut lua_State) -> c_int {
 
         match outcome {
             Ok(Ok(results)) => {
-                // 5a. Push every result and return its count.
+                // 5a. Push every result and return its count. Reserve stack space
+                //     first: an unchecked push of a very large result list would
+                //     overflow the Lua stack and trip a fatal VM assertion
+                //     (SIGTRAP) instead of erroring. Guard it and raise a
+                //     catchable error if the results cannot fit (mirroring mlua).
                 let n = results.len() as c_int;
+                if lua_checkstack(state, n.max(1)) == 0 {
+                    return raise_lua_error(state, "too many results to return to Lua");
+                }
                 for v in results.iter() {
                     if let Err(e) = lua.push_value(v) {
                         return raise_lua_error(state, &e.to_string());

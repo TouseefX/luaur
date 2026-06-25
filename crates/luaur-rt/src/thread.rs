@@ -18,7 +18,7 @@
 //! `Error` mapping.
 
 use crate::error::{Error, Result};
-use crate::ffi::*;
+use crate::sys::*;
 use crate::function::Function;
 use crate::multi::MultiValue;
 use crate::state::{Lua, LuaRef};
@@ -261,7 +261,7 @@ impl Thread {
             // coroutine stack) on a yield.
             if yielded
                 && nres == 1
-                && crate::ffi::lua_tolightuserdata(co, -1) == crate::async_support::poll_pending()
+                && crate::sys::lua_tolightuserdata(co, -1) == crate::async_support::poll_pending()
             {
                 lua_settop(co, 0);
                 return Ok(AsyncResume::Pending);
@@ -305,7 +305,7 @@ impl Thread {
             if lua_checkstack(co, 2) == 0 {
                 return;
             }
-            crate::ffi::lua_pushlightuserdatatagged(parent, crate::async_support::poll_terminate(), 0);
+            crate::sys::lua_pushlightuserdatatagged(parent, crate::async_support::poll_terminate(), 0);
             lua_xmove(parent, co, 1);
             let _ = lua_resume(co, parent, 1);
             lua_settop(co, 0);

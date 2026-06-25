@@ -49,7 +49,28 @@ impl RegistryKey {
 
 impl std::fmt::Debug for RegistryKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RegistryKey")
+        // Include the registry slot id so two keys referring to different slots
+        // print differently (mlua's `RegistryKey` Debug exposes the slot too).
+        write!(f, "RegistryKey({})", self.reference.id())
+    }
+}
+
+// `RegistryKey` is usable as a hash-map key (mlua's `test_lua_registry_hash`).
+// Identity is the (state, registry-slot) pair: a clone shares the same slot, so
+// it hashes/compares equal; keys for distinct values use distinct slots.
+impl PartialEq for RegistryKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.reference.state() == other.reference.state()
+            && self.reference.id() == other.reference.id()
+    }
+}
+
+impl Eq for RegistryKey {}
+
+impl std::hash::Hash for RegistryKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (self.reference.state() as usize).hash(state);
+        self.reference.id().hash(state);
     }
 }
 
@@ -72,7 +93,7 @@ impl Lua {
         let value = unsafe {
             key.push();
             let v = self.value_from_stack(-1)?;
-            crate::ffi::lua_pop(state, 1);
+            crate::sys::lua_pop(state, 1);
             v
         };
         T::from_lua(value, self)
@@ -111,6 +132,52 @@ impl Lua {
         // `Lua::new()` has a distinct state).
         key.reference.state() == self.state()
     }
+
+    /// Expire any [`RegistryKey`]s whose strong handles have all been dropped.
+    ///
+    /// Mirrors `mlua::Lua::expire_registry_values`. luaur-rt releases a
+    /// registry slot eagerly when the last clone of its `RegistryKey` is dropped
+    /// (via [`crate::state::LuaRef`]'s `Drop` calling `lua_unref`), so there is
+    /// no deferred-expiry queue to drain; this is a no-op kept for parity.
+    pub fn expire_registry_values(&self) {}
+
+    /// Store a value in the registry under the string `name`. Mirrors
+    /// `mlua::Lua::set_named_registry_value`.
+    pub fn set_named_registry_value(&self, name: &str, value: impl IntoLua) -> Result<()> {
+        let v = value.into_lua(self)?;
+        let state = self.state();
+        let cname = std::ffi::CString::new(name)
+            .map_err(|_| Error::runtime("registry name contains a NUL byte"))?;
+        unsafe {
+            self.push_value(&v)?;
+            // lua_setfield pops the value and stores registry[name] = value.
+            crate::sys::lua_setfield(state, crate::sys::LUA_REGISTRYINDEX, cname.as_ptr());
+        }
+        Ok(())
+    }
+
+    /// Read back a value previously stored with
+    /// [`Lua::set_named_registry_value`], converting it to `T`. A name that was
+    /// never set (or was unset) reads back as `nil`. Mirrors
+    /// `mlua::Lua::named_registry_value`.
+    pub fn named_registry_value<T: FromLua>(&self, name: &str) -> Result<T> {
+        let state = self.state();
+        let cname = std::ffi::CString::new(name)
+            .map_err(|_| Error::runtime("registry name contains a NUL byte"))?;
+        let value = unsafe {
+            crate::sys::lua_getfield(state, crate::sys::LUA_REGISTRYINDEX, cname.as_ptr());
+            let v = self.value_from_stack(-1)?;
+            crate::sys::lua_pop(state, 1);
+            v
+        };
+        T::from_lua(value, self)
+    }
+
+    /// Remove a value stored under the string `name`. Mirrors
+    /// `mlua::Lua::unset_named_registry_value`.
+    pub fn unset_named_registry_value(&self, name: &str) -> Result<()> {
+        self.set_named_registry_value(name, Value::Nil)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +200,7 @@ impl IntoLua for &RegistryKey {
         unsafe {
             self.push();
             let v = lua.value_from_stack(-1)?;
-            crate::ffi::lua_pop(state, 1);
+            crate::sys::lua_pop(state, 1);
             Ok(v)
         }
     }

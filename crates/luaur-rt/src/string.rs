@@ -1,7 +1,7 @@
 //! The [`LuaString`] handle. Mirrors `mlua::String`.
 
 use crate::error::{Error, Result};
-use crate::ffi::*;
+use crate::sys::*;
 use crate::state::{Lua, LuaRef};
 use crate::sync::{NotSync, XRc, NOT_SYNC};
 

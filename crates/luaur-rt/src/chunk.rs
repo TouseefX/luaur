@@ -5,7 +5,7 @@
 //! `luau_load` -> a Lua function on the stack -> `lua_pcall`.
 
 use crate::error::{Error, Result};
-use crate::ffi::*;
+use crate::sys::*;
 use crate::function::Function;
 use crate::state::Lua;
 use crate::traits::FromLuaMulti;
@@ -107,9 +107,14 @@ impl Chunk {
         // A leading 0 byte is the compiler's error marker.
         if bytes.first() == Some(&0u8) {
             let message = String::from_utf8_lossy(&bytes[1..]).into_owned();
+            // Luau reports a syntax error caused by hitting end-of-input (an
+            // unterminated block/expression) with a "got <eof>" suffix; mlua
+            // surfaces that as `incomplete_input: true` so a REPL can keep
+            // reading. Detect it the same way.
+            let incomplete_input = message.contains("<eof>");
             return Err(Error::SyntaxError {
                 message,
-                incomplete_input: false,
+                incomplete_input,
             });
         }
         Ok(bytes)

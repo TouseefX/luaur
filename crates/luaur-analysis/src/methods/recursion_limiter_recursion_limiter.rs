@@ -31,9 +31,15 @@ impl RecursionLimiter {
 
         if limit > 0 && unsafe { *self.base.count > limit } {
             let err = RecursionLimitException::new(system);
-            panic!("{}", unsafe {
-                core::ffi::CStr::from_ptr(err.base.what()).to_string_lossy()
-            });
+            // Panic with the exception's owned message String. The previous
+            // `CStr::from_ptr(err.base.what())` read the String's bytes as a
+            // NUL-terminated C string and over-ran past the end, so the surfaced
+            // message carried trailing garbage (e.g. "...in areEqual5\u{fffd}").
+            // luaD_rawrunprotected downcasts this String payload into a LUA_ERRRUN
+            // message, so a user type function that trips the limit reports
+            // "'<fn>' type function errored at runtime: Internal recursion counter
+            // limit exceeded in <system>" (type_function_user_udtf_areequal_*).
+            panic!("{}", err.base.message);
         }
     }
 }

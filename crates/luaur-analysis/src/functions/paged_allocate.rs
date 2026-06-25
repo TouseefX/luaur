@@ -99,12 +99,16 @@ pub fn paged_allocate(size: usize) -> *mut core::ffi::c_void {
     // limit.
     #[cfg(target_os = "windows")]
     {
-        use windows::Win32::System::Memory::{
+        use windows_sys::Win32::System::Memory::{
             VirtualAlloc, MEM_COMMIT, MEM_RESERVE, PAGE_READWRITE,
         };
         unsafe {
-            VirtualAlloc(None, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE)
-                as *mut core::ffi::c_void
+            VirtualAlloc(
+                core::ptr::null(),
+                size,
+                MEM_RESERVE | MEM_COMMIT,
+                PAGE_READWRITE,
+            ) as *mut core::ffi::c_void
         }
     }
 

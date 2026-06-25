@@ -25,7 +25,27 @@ pub fn make_pages_not_executable_mut(mem: *mut u8, size: usize) -> bool {
         unsafe { mprotect(mem as *mut c_void, size, PROT_READ | PROT_WRITE) == 0 }
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    // Windows was an unimplemented `false` stub, so CodeAllocator::deallocate (which
+    // CODEGEN_ASSERT!s this result) aborted on every code-block free with 0x80000003
+    // on Windows. Mirror the executable path's VirtualProtect, flipping protection
+    // back to PAGE_READWRITE.
+    #[cfg(target_os = "windows")]
+    {
+        use core::ffi::c_void;
+        use windows_sys::Win32::System::Memory::{VirtualProtect, PAGE_READWRITE};
+
+        let mut old_protect: u32 = 0;
+        unsafe {
+            VirtualProtect(
+                mem as *const c_void,
+                size,
+                PAGE_READWRITE,
+                &mut old_protect as *mut u32,
+            ) != 0
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
     {
         false
     }

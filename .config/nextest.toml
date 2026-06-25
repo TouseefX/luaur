@@ -22,6 +22,15 @@ slow-timeout = { period = "15s", terminate-after = 2 }
 # Bump back toward num-cpus once the suite is known-clean.
 test-threads = 6
 
+# A few stress tests legitimately exceed the 30s global kill on slower CI runners
+# (the GitHub macOS/ubuntu hosts): the udtf areequal test builds a 50_000-deep
+# table in the debug type-function VM, and some conformance scripts run real Lua
+# workloads. Give them a generous ceiling without weakening the global anti-OOM
+# net for everything else — they still terminate well inside it.
+[[profile.default.overrides]]
+filter = 'test(type_function_user_udtf_areequal_stack_overflow_on_deep_types) | package(luaur-conformance)'
+slow-timeout = { period = "60s", terminate-after = 3 }
+
 # A separate, stricter profile for hunting runaways: serial + short kill, so a
 # new infinite-loop test is caught in seconds with zero risk.
 # Use with: cargo nextest run --profile hunt

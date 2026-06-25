@@ -34,6 +34,7 @@
       </a>
       <nav class="nav-links">
         <a href="#playground">Playground</a>
+        <a href="#embed">Use from Rust</a>
         <a href="#how">How it was built</a>
         <a href="#crates">Crates</a>
         <a href="#faq">FAQ</a>
@@ -159,6 +160,86 @@
             executes on the VM; press <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> to run.
             The <em>type-error</em> example shows the checker catching a real mistake before you Run.
           </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── EMBED / USE FROM RUST ───────────────────────── -->
+    <section id="embed" class="embed">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Embed it</p>
+          <h2>Use it from Rust</h2>
+          <p>
+            On top of the faithful engine sits <code>luaur-rt</code> — a safe, ergonomic
+            API whose interface deliberately mirrors
+            <a href="https://github.com/mlua-rs/mlua" target="_blank" rel="noopener">mlua</a>,
+            so embedders are immediately at home. Expose Rust functions and types to Luau;
+            a returned <code>Err</code> — or even a <code>panic!</code> — surfaces as a
+            catchable Lua error, not a crash. It is <strong>pure Rust</strong>: no C
+            toolchain, no FFI, runs anywhere Rust does — including
+            <code>wasm32-unknown-unknown</code>.
+          </p>
+        </div>
+
+        <div class="embed-grid">
+          <div class="rs-pane">
+            <div class="pane-head">
+              <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+              <span class="label">main.rs</span>
+            </div>
+<pre class="rs-code"><code><span class="tok-com">// Expose a Rust closure to Luau, then run a script that calls it.</span>
+<span class="tok-kw">use</span> luaur::{Lua, UserData, UserDataMethods};
+
+<span class="tok-kw">let</span> lua = Lua::new();
+lua.globals().set(<span class="tok-str">"add"</span>,
+    lua.create_function(|_, (a, b): (i64, i64)| <span class="tok-fn">Ok</span>(a + b))?)?;
+<span class="tok-kw">let</span> sum: i64 = lua.load(<span class="tok-str">"return add(2, 3)"</span>).eval()?;   <span class="tok-com">// 5</span>
+
+<span class="tok-com">// Expose a Rust type — with methods and metamethods:</span>
+<span class="tok-kw">struct</span> <span class="tok-ty">Vec2</span> { x: f64, y: f64 }
+<span class="tok-kw">impl</span> <span class="tok-ty">UserData</span> <span class="tok-kw">for</span> <span class="tok-ty">Vec2</span> {
+    <span class="tok-kw">fn</span> <span class="tok-fn">add_methods</span>&lt;M: UserDataMethods&lt;Self&gt;&gt;(m: &amp;<span class="tok-kw">mut</span> M) {
+        m.add_method(<span class="tok-str">"magnitude"</span>, |_, v, ()| {
+            <span class="tok-fn">Ok</span>((v.x * v.x + v.y * v.y).sqrt())
+        });
+    }
+}
+lua.globals().set(<span class="tok-str">"v"</span>, lua.create_userdata(Vec2 { x: 3.0, y: 4.0 })?)?;
+<span class="tok-kw">let</span> m: f64 = lua.load(<span class="tok-str">"return v:magnitude()"</span>).eval()?;   <span class="tok-com">// 5.0</span></code></pre>
+          </div>
+
+          <aside class="embed-side">
+            <div class="embed-stat">
+              <div class="embed-stat-num">184<span class="embed-stat-den">/187</span></div>
+              <div class="embed-stat-label">
+                of <a href="https://github.com/mlua-rs/mlua" target="_blank" rel="noopener">mlua</a>'s
+                own tests pass <strong>unmodified</strong> — import-swap only, no rewrites
+                <span class="embed-stat-sub">(98%; the 3 exceptions are pinned to document genuine Lua-vs-Luau deviations)</span>
+              </div>
+            </div>
+
+            <div class="embed-note">
+              <h3>Same feature flags as mlua</h3>
+              <p>
+                <code>serde</code> (Rust↔Lua serialization), <code>async</code> (Rust
+                futures ↔ Luau coroutines), <code>send</code> (<code>Send</code>/<code>Sync</code>
+                handles), and <code>macros</code> (<code>#[derive(UserData)]</code>).
+              </p>
+            </div>
+
+            <div class="embed-note embed-note-accent">
+              <h3>A type checker mlua can't have</h3>
+              <p>
+                luaur ships Luau's <strong>type checker</strong>, not just its VM — so you can
+                hold a script to the host API <em>before</em> running it:
+              </p>
+<pre class="rs-code rs-code-sm"><code>luaur::<span class="tok-fn">check_with_definitions</span>(
+    <span class="tok-str">"local n: number = add(1, 2)"</span>,
+    <span class="tok-str">"declare function add(a: number, b: number): number"</span>,
+)?;  <span class="tok-com">// type-checks against the host fn</span></code></pre>
+            </div>
+          </aside>
         </div>
       </div>
     </section>
@@ -306,7 +387,8 @@
         <div class="crate-table-wrap">
           <table class="crate-table">
             <tbody>
-              <tr><td><code>luaur</code></td><td>Umbrella crate: re-exports every layer + <code>compile</code>/<code>eval</code> helpers</td></tr>
+              <tr><td><code>luaur</code></td><td><strong>Start here.</strong> Umbrella: the mlua-style API + <code>compile</code>/<code>eval</code>/<code>check</code> helpers, re-exporting every layer</td></tr>
+              <tr><td><code>luaur-rt</code></td><td>The safe, ergonomic <strong>mlua-style API</strong> — <code>Lua</code>, <code>create_function</code>, <code>UserData</code>, <code>FromLua</code>/<code>IntoLua</code></td></tr>
               <tr><td><code>luaur-common</code></td><td>Foundations: <code>SmallVector</code>, <code>DenseHashMap</code>, <code>Variant</code>, FastFlags</td></tr>
               <tr><td><code>luaur-ast</code></td><td>Lexer, parser, AST</td></tr>
               <tr><td><code>luaur-bytecode</code></td><td>Bytecode format + builder</td></tr>

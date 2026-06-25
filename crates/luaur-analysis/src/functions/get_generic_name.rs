@@ -24,12 +24,7 @@ pub unsafe fn get_generic_name(l: *mut lua_State) -> core::ffi::c_int {
     }
 
     if (*tfgt).is_named {
-        let pushlstring: unsafe extern "C" fn(
-            *mut luaur_vm::records::lua_state::lua_State,
-            *const core::ffi::c_char,
-            usize,
-        ) = core::mem::transmute(lua_pushlstring as *const ());
-        pushlstring(
+        lua_pushlstring(
             vm_l,
             {
                 let n = &(*tfgt).name;

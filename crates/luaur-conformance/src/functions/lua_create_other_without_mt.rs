@@ -8,12 +8,7 @@ const kTagOther: i32 = 13;
 #[allow(non_snake_case)]
 pub fn lua_create_other_without_mt(L: *mut lua_State) -> i32 {
     unsafe {
-        type NewUserdataTaggedFn =
-            unsafe extern "C" fn(*mut lua_State, usize, core::ffi::c_int) -> *mut core::ffi::c_void;
-        let lua_newuserdatatagged_ptr: NewUserdataTaggedFn =
-            core::mem::transmute(lua_newuserdatatagged as *const ());
-
-        lua_newuserdatatagged_ptr(
+        lua_newuserdatatagged(
             L,
             core::mem::size_of::<Vec2>(),
             kTagOther as core::ffi::c_int,

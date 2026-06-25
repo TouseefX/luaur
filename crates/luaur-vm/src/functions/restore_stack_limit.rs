@@ -13,12 +13,7 @@ pub unsafe fn restore_stack_limit(L: *mut lua_State) {
     if (*L).size_ci > LUAI_MAXCALLS {
         let inuse = cast_int!((*L).ci.offset_from((*L).base_ci));
         if inuse + 1 < LUAI_MAXCALLS {
-            // The dependency lua_d_realloc_ci is currently a stub with 0 arguments.
-            // We must call it with the arguments required by the C++ source (L, LUAI_MAXCALLS).
-            // The coordinator will update the stub signature to match this call.
-            let func: unsafe fn(*mut lua_State, core::ffi::c_int) =
-                core::mem::transmute(lua_d_realloc_ci as *const ());
-            func(L, LUAI_MAXCALLS);
+            lua_d_realloc_ci(L, LUAI_MAXCALLS);
         }
     }
 }

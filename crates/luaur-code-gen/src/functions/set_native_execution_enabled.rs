@@ -8,14 +8,7 @@ pub fn set_native_execution_enabled(L: *mut lua_State, enabled: bool) {
     // SAFETY: native-only; caller must ensure L is a valid lua_State pointer.
     // We must access the internal global state to modify the execution callbacks.
     unsafe {
-        // The get_code_gen_context stub currently has a signature fn() -> (),
-        // but the C++ logic and examples show it takes L and returns a pointer.
-        // We cast the function pointer to the correct signature to call it.
-        type GetCodeGenContextFn = unsafe extern "C" fn(*mut lua_State) -> *mut core::ffi::c_void;
-        let get_context_ptr: GetCodeGenContextFn =
-            core::mem::transmute(get_code_gen_context as *const ());
-
-        let context_ptr = get_context_ptr(L);
+        let context_ptr = get_code_gen_context(L);
         if context_ptr.is_null() {
             return;
         }

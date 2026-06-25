@@ -23,16 +23,7 @@ pub unsafe fn forg_loop_non_table_fallback(
     (*l_ptr).top = ra.add(3 + 3); // func + 2 args (state and index)
     luaur_common::LUAU_ASSERT!((*l_ptr).top <= (*l_ptr).stack_last);
 
-    // The provided signature for lua_d_performcally in the dependency card was a stub: pub fn lua_d_performcally();
-    // However, the C++ source and the error message indicate it must take (L, func, nresults) and return bool.
-    // We use the signature required by the call site.
-    let perform_call: unsafe extern "C" fn(
-        *mut luaur_vm::records::lua_state::lua_State,
-        *mut TValue,
-        i32,
-    ) -> bool = core::mem::transmute(lua_d_performcally as *const ());
-
-    if perform_call(l_ptr, ra.add(3), aux as u8 as i32) {
+    if lua_d_performcally(l_ptr, ra.add(3), aux as u8 as i32) {
         return -1; // yield/break, caller must exit native execution
     }
 

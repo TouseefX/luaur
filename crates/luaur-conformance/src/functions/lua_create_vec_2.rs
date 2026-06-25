@@ -12,12 +12,7 @@ pub fn lua_create_vec_2(L: *mut lua_State) -> i32 {
         let x = lua_l_checknumber(L, 1);
         let y = lua_l_checknumber(L, 2);
 
-        type NewUserdataTaggedFn =
-            unsafe extern "C" fn(*mut lua_State, usize, core::ffi::c_int) -> *mut core::ffi::c_void;
-        let lua_newuserdatatagged_ptr: NewUserdataTaggedFn =
-            core::mem::transmute(lua_newuserdatatagged as *const ());
-
-        let p = lua_newuserdatatagged_ptr(
+        let p = lua_newuserdatatagged(
             L,
             core::mem::size_of::<Vec2>(),
             kTagVec2 as core::ffi::c_int,

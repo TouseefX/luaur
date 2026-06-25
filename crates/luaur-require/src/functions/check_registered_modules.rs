@@ -28,25 +28,14 @@ pub fn check_registered_modules(l: *mut lua_State, path: *const c_char) -> c_int
 
         let path_lower_c = String::from(path_lower.clone() + "\0");
 
-        // The luau-vm crate provides stubs for functions like lua_getfield.
-        // We must cast the function pointer to the real signature to call it.
-        let lua_getfield_ptr: unsafe extern "C" fn(*mut lua_State, c_int, *const c_char) -> c_int =
-            core::mem::transmute(lua_getfield as *const ());
-        lua_getfield_ptr(l, -1, path_lower_c.as_ptr() as *const c_char);
+        lua_getfield(l, -1, path_lower_c.as_ptr() as *const c_char);
 
-        let lua_type_ptr: unsafe extern "C" fn(*mut lua_State, c_int) -> c_int =
-            core::mem::transmute(lua_type as *const ());
-
-        // lua_isnil! macro expands to a call to lua_type.
-        // Since lua_type is a stub, we must evaluate the condition manually using the casted pointer.
-        if lua_type_ptr(l, -1) == (luaur_vm::enums::lua_type::lua_Type::LUA_TNIL as i32) {
+        if lua_type(l, -1) == (luaur_vm::enums::lua_type::lua_Type::LUA_TNIL as i32) {
             lua_pop(l, 2);
             return 0;
         }
 
-        let lua_remove_ptr: unsafe extern "C" fn(*mut lua_State, c_int) =
-            core::mem::transmute(lua_remove as *const ());
-        lua_remove_ptr(l, -2);
+        lua_remove(l, -2);
 
         1
     }

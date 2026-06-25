@@ -19,23 +19,12 @@ impl IrRegAllocA64 {
 
             let mut in_vm_exit_sync = false;
 
-            // Note: get_next_inst_use is currently a stub in the required context, but the C++ source
-            // and the previous compilation error indicate it must return u32 and take 4 arguments.
-            // We cast the call to the expected signature to satisfy the logic of the method.
-            let next_use = unsafe {
-                let func: fn(
-                    *mut crate::records::ir_function::IrFunction,
-                    u32,
-                    u32,
-                    *mut bool,
-                ) -> u32 = core::mem::transmute(get_next_inst_use as *const ());
-                func(
-                    self.function,
-                    reg_inst_user,
-                    self.curr_inst_idx,
-                    &mut in_vm_exit_sync,
-                )
-            };
+            let next_use = get_next_inst_use(
+                unsafe { &mut *self.function },
+                reg_inst_user,
+                self.curr_inst_idx,
+                &mut in_vm_exit_sync,
+            );
 
             // Cannot spill value that is about to be used in the current instruction
             if next_use == self.curr_inst_idx

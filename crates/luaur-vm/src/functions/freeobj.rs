@@ -11,7 +11,6 @@ use crate::functions::lua_s_free::luaS_free;
 use crate::functions::lua_u_freeudata::lua_u_freeudata;
 use crate::records::gc_object::GCObject;
 use crate::records::lua_page::lua_Page;
-use crate::records::luau_buffer::LuauBuffer;
 use crate::type_aliases::lua_state::lua_State;
 use luaur_common::macros::luau_assert::LUAU_ASSERT;
 
@@ -42,9 +41,7 @@ pub unsafe fn freeobj(l: *mut lua_State, o: *mut GCObject, page: *mut lua_Page) 
             lua_u_freeudata(l, core::ptr::addr_of_mut!((*o).u) as *mut _, page);
         }
         x if x == lua_Type::LUA_TBUFFER as i32 => {
-            type LuaBFreeBuffer = unsafe fn(*mut lua_State, *mut LuauBuffer, *mut lua_Page);
-            let f: LuaBFreeBuffer = core::mem::transmute(lua_b_freebuffer as *const ());
-            f(l, core::ptr::addr_of_mut!((*o).buf) as *mut _, page);
+            lua_b_freebuffer(l, core::ptr::addr_of_mut!((*o).buf) as *mut _, page);
         }
         x if x == lua_Type::LUA_TCLASS as i32 => {
             lua_r_freeclass(l, core::ptr::addr_of_mut!((*o).lclass) as *mut _, page);

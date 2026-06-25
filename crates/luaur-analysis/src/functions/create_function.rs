@@ -109,9 +109,7 @@ pub(crate) unsafe fn get_type_pack_runtime(
     let mut head = Vec::new();
 
     if lua_istable!(vm_l, head_idx) {
-        let lua_pushvalue_fn: fn(*mut luaur_vm::records::lua_state::lua_State, core::ffi::c_int) =
-            core::mem::transmute(lua_pushvalue as *const ());
-        lua_pushvalue_fn(vm_l, head_idx);
+        lua_pushvalue(vm_l, head_idx);
 
         for i in 1..=lua_objlen(vm_l, -1) {
             lua_pushinteger(vm_l, i);

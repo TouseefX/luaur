@@ -18,20 +18,12 @@ impl IrRegAllocX64 {
 
             let mut in_vm_exit_sync = false;
 
-            let next_use = unsafe {
-                let func: fn(
-                    *mut crate::records::ir_function::IrFunction,
-                    u32,
-                    u32,
-                    *mut bool,
-                ) -> u32 = core::mem::transmute(get_next_inst_use as *const ());
-                func(
-                    self.function,
-                    reg_inst_user,
-                    self.curr_inst_idx,
-                    &mut in_vm_exit_sync,
-                )
-            };
+            let next_use = get_next_inst_use(
+                unsafe { &mut *self.function },
+                reg_inst_user,
+                self.curr_inst_idx,
+                &mut in_vm_exit_sync,
+            );
 
             // Cannot spill value that is about to be used in the current instruction
             if next_use == self.curr_inst_idx

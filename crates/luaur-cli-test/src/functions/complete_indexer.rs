@@ -1,5 +1,5 @@
 use alloc::string::String;
-use core::ffi::{c_char, c_int};
+use core::ffi::c_char;
 
 use crate::functions::complete_partial_matches::complete_partial_matches;
 use crate::functions::safe_get_table::safe_get_table;
@@ -24,23 +24,10 @@ pub fn complete_indexer(
     let mut complete_only_functions = false;
 
     unsafe {
-        // The required context shows these functions as pub fn name(); stubs.
-        // We must cast them to the correct signature to call them.
-        let lua_checkstack_ptr: unsafe extern "C" fn(*mut lua_State, c_int) -> c_int =
-            core::mem::transmute(lua_checkstack as *const ());
-        let lua_pushvalue_ptr: unsafe extern "C" fn(*mut lua_State, c_int) =
-            core::mem::transmute(lua_pushvalue as *const ());
-        let lua_pushlstring_ptr: unsafe extern "C" fn(*mut lua_State, *const c_char, usize) =
-            core::mem::transmute(lua_pushlstring as *const ());
-        let lua_remove_ptr: unsafe extern "C" fn(*mut lua_State, c_int) =
-            core::mem::transmute(lua_remove as *const ());
-        let lua_type_ptr: unsafe extern "C" fn(*mut lua_State, c_int) -> c_int =
-            core::mem::transmute(lua_type as *const ());
-
-        lua_checkstack_ptr(l, LUA_MINSTACK);
+        lua_checkstack(l, LUA_MINSTACK);
 
         // Push the global variable table to begin the search
-        lua_pushvalue_ptr(l, LUA_GLOBALSINDEX);
+        lua_pushvalue(l, LUA_GLOBALSINDEX);
 
         loop {
             let bytes = lookup.as_bytes();
@@ -70,13 +57,12 @@ pub fn complete_indexer(
             let prefix = &lookup[..sep_idx];
 
             // find the key in the table
-            lua_pushlstring_ptr(l, prefix.as_ptr() as *const c_char, prefix.len());
+            lua_pushlstring(l, prefix.as_ptr() as *const c_char, prefix.len());
             safe_get_table(l, -2);
-            lua_remove_ptr(l, -2);
+            lua_remove(l, -2);
 
-            // Manual expansion of lua_istable! using the transmuted pointer to avoid stub signature mismatch
             let is_table =
-                lua_type_ptr(l, -1) == (luaur_vm::enums::lua_type::lua_Type::LUA_TTABLE as i32);
+                lua_type(l, -1) == (luaur_vm::enums::lua_type::lua_Type::LUA_TTABLE as i32);
 
             if is_table || try_replace_top_with_index(l) {
                 complete_only_functions = lookup.as_bytes()[sep_idx] == b':';

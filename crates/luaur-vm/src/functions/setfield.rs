@@ -12,12 +12,6 @@ pub fn setfield(L: *mut lua_State, key: &str, value: i32) {
     unsafe {
         lua_pushinteger(L, value as c_int);
 
-        // The dependency lua_setfield is currently a stub with no arguments in the crate,
-        // but the C++ source and the logic of this function require passing arguments.
-        // We cast the function pointer to the correct signature to satisfy the call.
-        let set_field: unsafe extern "C" fn(*mut lua_State, c_int, *const c_char) =
-            core::mem::transmute(lua_setfield as *const ());
-
-        set_field(L, -2, key_c);
+        lua_setfield(L, -2, key_c);
     }
 }

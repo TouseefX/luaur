@@ -33,32 +33,16 @@ pub unsafe fn shrinkstack(L: *mut lua_State) {
     }
 
     if 3 * (ci_used as usize) < (*L).size_ci as usize && 2 * BASIC_CI_SIZE < (*L).size_ci {
-        // The dependency lua_d_realloc_ci is currently a stub.
-        // The coordinator will update the stub signature to match this call.
-        let func: unsafe fn(*mut lua_State, core::ffi::c_int) =
-            core::mem::transmute(lua_d_realloc_ci as *const ());
-        func(L, (*L).size_ci / 2); // still big enough...
+        lua_d_realloc_ci(L, (*L).size_ci / 2); // still big enough...
     }
 
-    {
-        let func: unsafe fn(*mut lua_State, core::ffi::c_int) =
-            core::mem::transmute(lua_d_realloc_ci as *const ());
-        condhardstacktests!(func(L, ci_used + 1));
-    }
+    condhardstacktests!(lua_d_realloc_ci(L, ci_used + 1));
 
     if 3 * (s_used as usize) < (*L).stacksize as usize
         && 2 * (BASIC_STACK_SIZE + EXTRA_STACK) < (*L).stacksize
     {
-        // The dependency lua_d_reallocstack is currently a stub.
-        // The coordinator will update the stub signature to match this call.
-        let func: unsafe fn(*mut lua_State, core::ffi::c_int, core::ffi::c_int) =
-            core::mem::transmute(lua_d_reallocstack as *const ());
-        func(L, (*L).stacksize / 2, 0); // still big enough...
+        lua_d_reallocstack(L, (*L).stacksize / 2, 0); // still big enough...
     }
 
-    {
-        let func: unsafe fn(*mut lua_State, core::ffi::c_int, core::ffi::c_int) =
-            core::mem::transmute(lua_d_reallocstack as *const ());
-        condhardstacktests!(func(L, s_used, 0));
-    }
+    condhardstacktests!(lua_d_reallocstack(L, s_used, 0));
 }

@@ -21,7 +21,11 @@ impl<T> TypedAllocator<T> {
                 }
             }
 
-            paged_deallocate(block as *mut core::ffi::c_void, Self::kBlockSizeBytes, self.paged);
+            paged_deallocate(
+                block as *mut core::ffi::c_void,
+                Self::kBlockSizeBytes,
+                self.paged,
+            );
         }
 
         self.stuff.clear();

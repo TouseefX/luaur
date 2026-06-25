@@ -20,11 +20,7 @@ pub fn getboolfield(L: *mut lua_State, key: &str) -> i32 {
         let is_nil = crate::functions::lua_type::lua_type(L, -1)
             == (crate::enums::lua_type::lua_Type::LUA_TNIL as i32);
 
-        let res: c_int = if is_nil {
-            -1
-        } else {
-            lua_toboolean(L, -1)
-        };
+        let res: c_int = if is_nil { -1 } else { lua_toboolean(L, -1) };
 
         lua_pop(L, 1);
         res

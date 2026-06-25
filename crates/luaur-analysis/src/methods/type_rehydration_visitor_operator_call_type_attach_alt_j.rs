@@ -1,3 +1,4 @@
+use crate::functions::allocate_string_type_attach::allocate_string_luau_allocator_string_view;
 use crate::functions::flatten_type_pack::flatten_type_pack_id;
 use crate::functions::get_type_alt_j::get as get_type;
 use crate::functions::get_type_pack::get as get_type_pack;
@@ -56,9 +57,16 @@ impl TypeRehydrationVisitor {
                 let gen_ptr = unsafe { get_type::<GenericType>(gen_id) };
                 if !gen_ptr.is_null() {
                     let gen = unsafe { &*gen_ptr };
+                    // `gen.name` is a Rust String (not NUL-terminated); copy it into
+                    // the AST allocator with a trailing NUL so AstName's borrowed
+                    // C-string pointer is safe to read (was UB: read past the bytes).
+                    let name_ptr = allocate_string_luau_allocator_string_view(
+                        unsafe { &mut *self.allocator },
+                        &gen.name,
+                    );
                     let ast_gen = AstGenericType::new(
                         Location::default(),
-                        AstName::ast_name_c_char(gen.name.as_ptr() as *const core::ffi::c_char),
+                        AstName::ast_name_c_char(name_ptr),
                         core::ptr::null_mut(),
                     );
                     let allocator = unsafe { &mut *self.allocator };
@@ -86,9 +94,13 @@ impl TypeRehydrationVisitor {
                 let pack_ptr = unsafe { get_type_pack::<GenericTypePack>(pack_id) };
                 if !pack_ptr.is_null() {
                     let pack = unsafe { &*pack_ptr };
+                    let name_ptr = allocate_string_luau_allocator_string_view(
+                        unsafe { &mut *self.allocator },
+                        &pack.name,
+                    );
                     let ast_pack = AstGenericTypePack::new(
                         Location::default(),
-                        AstName::ast_name_c_char(pack.name.as_ptr() as *const core::ffi::c_char),
+                        AstName::ast_name_c_char(name_ptr),
                         core::ptr::null_mut(),
                     );
                     let allocator = unsafe { &mut *self.allocator };
@@ -138,8 +150,11 @@ impl TypeRehydrationVisitor {
             let mut i: usize = 0;
             for arg_opt in &ftv.arg_names {
                 let slot: Option<AstArgumentName> = if let Some(ref arg) = *arg_opt {
-                    let name =
-                        AstName::ast_name_c_char(arg.name.as_ptr() as *const core::ffi::c_char);
+                    let name_ptr = allocate_string_luau_allocator_string_view(
+                        unsafe { &mut *self.allocator },
+                        &arg.name,
+                    );
+                    let name = AstName::ast_name_c_char(name_ptr);
                     Some((name, Location::default()))
                 } else {
                     None

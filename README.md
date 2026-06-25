@@ -7,6 +7,9 @@ type checker, ported to safe-by-default Rust and validated against Luau's **own*
 suite: **5,347 ported unit tests pass, and all 293 upstream conformance scripts run
 byte-identically** on the Rust VM (against Luau commit [`8f33df9`](https://github.com/luau-lang/luau)).
 
+**▶ [Try it live in your browser](https://pjankiewicz.github.io/luaur/)** — run and
+type-check Luau on the pure-Rust WebAssembly build, no install, no server.
+
 ```rust
 // A safe, mlua-style API over a pure-Rust Luau VM — no C, no FFI, no emscripten.
 use luaur::Lua;
@@ -186,3 +189,16 @@ blanket "perfect port" claims — in [`docs/CONFORMANCE.md`](docs/CONFORMANCE.md
 
 MIT. luaur is a derivative translation of Luau (© Roblox Corporation) which derives from
 Lua (© Lua.org, PUC-Rio); both upstream copyrights are preserved. See [`LICENSE`](LICENSE).
+
+## Acknowledgements
+
+luaur stands entirely on the work of three projects, with gratitude to their authors and
+communities:
+
+- **[Lua](https://www.lua.org/)** — Lua.org, PUC-Rio. The original language and reference
+  implementation that started it all.
+- **[Luau](https://github.com/luau-lang/luau)** — Roblox. The typed, performance-focused
+  Lua dialect that luaur is a faithful translation of.
+- **[mlua](https://github.com/mlua-rs/mlua)** — the ergonomic, thoughtfully-designed Rust
+  API that `luaur-rt` deliberately mirrors, and whose test suite luaur ports to measure
+  compatibility.

@@ -52,13 +52,15 @@ The `luaur-rt` crate (the mlua-style `Lua`/`Value`/`UserData` API) has **no upst
 counterpart** — Luau exposes only a C API. There is therefore nothing in *Luau* to
 "conform" to; it is a Rust-native addition. What it *is* measured against is
 [`mlua`](https://github.com/mlua-rs/mlua): mlua's own test suite was ported file-by-file,
-import-swap only, and **184 of 187 ported tests pass unmodified (98%)**. The 3 exceptions
-are pinned tests that document a genuine Lua-vs-Luau deviation (no tagged error value, no
-heap object enumeration by type, the `{:#?}` table-dump format). A small set of mlua
-behaviors are intentionally not ported because Luau is Lua-5.x-incompatible by design
-(Lua-5.x debug hooks — only the VM interrupt exists — native `i64`, and
-`collectgarbage`/`loadstring` in the base library), several of which mlua itself gates off
-for its `luau` feature. The figure is reproducible:
+import-swap only. **235 mlua tests pass — 225 of them byte-for-byte**, and **10** are pinned
+tests that document a genuine Lua-vs-Luau deviation (no tagged error value; a panicking Rust
+callback becomes a *catchable* Lua error rather than a re-raised unwind, because the VM uses
+panic-based longjmp emulation; no heap object enumeration by type; the `{:#?}` table-dump and
+traceback formats). A set of mlua behaviors are intentionally not ported because Luau is
+Lua-5.x-incompatible by design (Lua-5.x debug hooks — only the VM interrupt exists — native
+`i64`, `collectgarbage`/`loadstring` in the base library, the 5.4 `warn` system, LuaJIT
+`cdata`), several of which mlua itself gates off for its `luau` feature. The figures are
+reproducible:
 
 ```sh
 cargo nextest run -p luaur-rt                                # default

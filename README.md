@@ -76,14 +76,16 @@ The lower-level `luaur::{compile, eval, check}` helpers and the raw C-style VM A
 ### How compatible with mlua, really?
 
 The honest way to answer "is the interface mlua-compatible" is to take mlua's **own**
-test suite and run it against luaur-rt with nothing changed but the import path. We did:
-**184 of 187 ported mlua tests pass unmodified (98%)** — import-swap only, no test rewrites.
-The other **3** are pinned to *document* a genuine Lua-vs-Luau deviation rather than hide it
-(`typeof(err)` is `"string"` not `"error"` because Luau has no tagged error value; no heap
-object enumeration by type; the `{:#?}` table-dump format). A handful of mlua behaviors are
-intentionally not ported because Luau is Lua-5.x-incompatible by design — the Lua-5.x debug
-hooks (only the VM *interrupt* exists), native `i64`, and `collectgarbage`/`loadstring` in the
-base library — several of which **mlua itself disables** for its own `luau` feature.
+test suite and run it against luaur-rt with nothing changed but the import path. We ported
+it file-by-file and **235 mlua tests pass** — **225 of them byte-for-byte** (import-swap
+only, no test rewrites). The other **10** are pinned to *document* a genuine Lua-vs-Luau
+deviation rather than hide it (`typeof(err)` is `"string"` not `"error"` because Luau has no
+tagged error value; a panicking Rust callback surfaces as a *catchable* Lua error, not a
+re-raised unwind; the `{:#?}` table-dump and traceback formats; no heap object enumeration
+by type). A handful of mlua tests are intentionally not ported because Luau is
+Lua-5.x-incompatible by design — the Lua-5.x debug hooks (only the VM *interrupt* exists),
+native `i64`, `collectgarbage`/`loadstring` in the base library, the 5.4 `warn` system, and
+LuaJIT-only `cdata` — several of which **mlua itself disables** for its own `luau` feature.
 
 The same opt-in feature flags as mlua are mirrored, so existing mlua code feels at home:
 

@@ -45,11 +45,12 @@ pub use check::{check, check_with_definitions};
 // `luaur-rt`. (Re-exported `luaur::rt` already aliases the crate for the rest
 // of the API.)
 pub use luaur_rt::{
-    AnyUserData, Buffer, Chunk, ChunkMode, Compiler, Debug, DebugWhat, Error, ExternalError,
-    ExternalResult, FromLua, FromLuaMulti, Function, FunctionInfo, Integer, IntoLua, IntoLuaMulti,
-    Lua, LuaString, MaybeSend, MaybeSync, MetaMethod, MultiValue, Number, RegistryKey, Result,
-    Scope, Table, TablePairs, TableSequence, Thread, ThreadStatus, TypeMetatable, UserData,
-    UserDataFields, UserDataMethods, UserDataRef, UserDataRefMut, Value, Variadic, Vector, VmState,
+    AnyUserData, AppDataRef, AppDataRefMut, Buffer, Chunk, ChunkMode, Compiler, Debug, DebugWhat,
+    Error, ExternalError, ExternalResult, FromLua, FromLuaMulti, Function, FunctionInfo, Integer,
+    IntoLua, IntoLuaMulti, LightUserData, Lua, LuaNativeFn, LuaOptions, LuaString, MaybeSend,
+    MaybeSync, MetaMethod, MultiValue, Nil, Number, RegistryKey, Result, Scope, StdLib, Table,
+    TablePairs, TableSequence, Thread, ThreadStatus, TypeMetatable, UserData, UserDataFields,
+    UserDataMethods, UserDataRef, UserDataRefMut, Value, Variadic, Vector, VmState, WeakLua,
 };
 
 /// The `async`-feature coroutine-as-`Future`/`Stream` driver, re-exported when

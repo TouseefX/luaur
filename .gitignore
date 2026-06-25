@@ -21,3 +21,8 @@ trace.json
 .idea/
 
 # NOTE: Cargo.lock is intentionally committed (this workspace ships binaries).
+
+# Core dumps (from crashing tests during cross-platform debugging)
+core
+**/core
+*.core

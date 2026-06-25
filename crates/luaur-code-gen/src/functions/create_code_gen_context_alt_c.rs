@@ -21,5 +21,7 @@ pub fn create_lua_state_usize_usize_allocation_callback_void(
     allocation_callback: *mut AllocationCallback,
     allocation_callback_context: *mut core::ffi::c_void,
 ) {
-    unimplemented!("luaur does not execute JIT-compiled native code (out of scope; see docs/CONFORMANCE.md)")
+    unimplemented!(
+        "luaur does not execute JIT-compiled native code (out of scope; see docs/CONFORMANCE.md)"
+    )
 }

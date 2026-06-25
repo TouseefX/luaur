@@ -20,23 +20,42 @@ use tempfile::TempDir;
 /// robust to the project's `build-dir` relocation (final binaries stay under
 /// `./target`, only intermediates move).
 pub fn bin(name: &str) -> Command {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    // Most robust source: this test executable's own location. cargo / nextest
+    // run integration tests from `<target>/<profile>/deps/<test-exe>`, so two
+    // parents up is the profile dir that also holds the workspace `[[bin]]`
+    // outputs. Deriving from `current_exe` automatically honors a relocated
+    // `CARGO_TARGET_DIR` / `build-dir` and the active profile (debug/release),
+    // which the previous hard-coded `target/debug` lookup did not — that mismatch
+    // failed every e2e test when the workspace built into a non-default target dir.
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(profile_dir) = exe.parent().and_then(|deps| deps.parent()) {
+            candidates.push(profile_dir.join(name));
+        }
+    }
+
+    // Fallbacks: an explicit `CARGO_TARGET_DIR`, then `<workspace root>/target`.
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     // crates/luaur-e2e -> crates -> <workspace root>
-    let workspace_root = manifest_dir
+    let workspace_target = manifest_dir
         .parent()
         .and_then(|p| p.parent())
-        .expect("workspace root above crates/luaur-e2e")
-        .to_path_buf();
-    let target = workspace_root.join("target");
+        .map(|root| root.join("target"));
+    let target_roots: Vec<PathBuf> = std::env::var_os("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .into_iter()
+        .chain(workspace_target)
+        .collect();
+    for target in &target_roots {
+        candidates.push(target.join("debug").join(name));
+        candidates.push(target.join("release").join(name));
+    }
 
-    // Tests usually build in the dev (`debug`) profile; honor a release run too.
-    let candidates = [
-        target.join("debug").join(name),
-        target.join("release").join(name),
-    ];
     let path = candidates.iter().find(|p| p.exists()).unwrap_or_else(|| {
         panic!(
-            "could not locate binary {name}; looked in {:?}. Build the workspace bins first.",
+            "could not locate binary {name}; looked in {:?}. \
+             Build the workspace bins first (cargo build --workspace --bins).",
             candidates
         )
     });

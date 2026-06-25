@@ -177,7 +177,7 @@ impl Thread {
         let parent = lua.state();
         let co = self.thread_state;
         unsafe {
-            if status != status::OK && status != status::YIELD {
+            if status != status::OK && status != status::YIELD && status != status::BREAK {
                 // Error: the coroutine left the error object on its own stack.
                 let nres = lua_gettop(co);
                 if nres > 0 {
@@ -186,6 +186,14 @@ impl Thread {
                 let err = lua.pop_error(status);
                 // Clear any extra values the coroutine left on the parent.
                 return Err(err);
+            }
+            // `LUA_BREAK` is an interrupt-driven yield: the coroutine produced
+            // no values and its entire register window is still *live* (it must
+            // continue from the break point on the next resume). We must NOT
+            // touch its stack — moving any values off would strip live
+            // registers and corrupt the re-entry. Return an empty result.
+            if status == status::BREAK {
+                return R::from_lua_multi(MultiValue::with_capacity(0), lua);
             }
             // Success/yield: the produced values sit on the coroutine stack.
             let nres = lua_gettop(co);
@@ -314,6 +322,13 @@ impl Thread {
             return ThreadStatus::Running;
         }
         unsafe {
+            // A coroutine yielded by an interrupt (`lua_break`) has raw status
+            // `LUA_BREAK`; `lua_costatus` reports that as "normal", but the
+            // coroutine is in fact resumable (it continues from the break point
+            // on the next resume). Detect it directly.
+            if lua_status(co) == status::BREAK {
+                return ThreadStatus::Resumable;
+            }
             let cos = lua_costatus(parent, co);
             match cos {
                 costatus::SUSPENDED => ThreadStatus::Resumable,
@@ -390,6 +405,12 @@ impl Thread {
             // Push the new body function onto the coroutine stack.
             func.push_to_stack();
             lua_xmove(parent, co, 1);
+            // Re-inherit the *main* globals table into the coroutine, dropping
+            // any sandbox proxy global a prior `Thread::sandbox` had installed
+            // (matches mlua's Luau `reset`: a reset thread sees the main env).
+            lua_pushvalue(parent, LUA_GLOBALSINDEX);
+            lua_xmove(parent, co, 1);
+            lua_replace(co, LUA_GLOBALSINDEX);
         }
         Ok(())
     }

@@ -32,6 +32,10 @@ pub struct Chunk {
     /// Optional environment table applied to the loaded function. Mirrors the
     /// per-chunk environment set by `mlua::Chunk::set_environment`.
     pub(crate) environment: Option<crate::table::Table>,
+    /// Optional per-chunk compiler. Mirrors `mlua::Chunk::set_compiler`. When
+    /// `None`, the VM-default compiler (`Lua::set_compiler`) is used, falling
+    /// back to luaur's default options.
+    pub(crate) compiler: Option<crate::compiler::Compiler>,
 }
 
 impl Chunk {
@@ -52,6 +56,19 @@ impl Chunk {
         self
     }
 
+    /// Set the [`Compiler`](crate::Compiler) used to compile this chunk.
+    /// Mirrors `mlua::Chunk::set_compiler`.
+    pub fn set_compiler(mut self, compiler: crate::compiler::Compiler) -> Self {
+        self.compiler = Some(compiler);
+        self
+    }
+
+    /// Compile the chunk and call it with `args`, converting the result to `R`.
+    /// Mirrors `mlua::Chunk::call`.
+    pub fn call<R: FromLuaMulti>(self, args: impl crate::traits::IntoLuaMulti) -> Result<R> {
+        self.into_function()?.call::<R>(args)
+    }
+
     /// The current chunk mode is always text here (luaur-rt loads source).
     /// Mirrors `mlua::Chunk::set_mode` as a no-op accepting `mlua::ChunkMode`'s
     /// role: luaur-rt auto-detects, so this is provided only for signature
@@ -69,7 +86,14 @@ impl Chunk {
 
     /// Compile the source to bytecode (or return a [`Error::SyntaxError`]).
     fn compile(&self) -> Result<Vec<u8>> {
-        let options = CompileOptions::default();
+        // Pick the effective compiler: a per-chunk one wins over the VM-default
+        // one (`Lua::set_compiler`); otherwise use luaur's default options.
+        let effective = self.compiler.clone().or_else(|| self.lua.vm_compiler());
+        let mut scratch: Vec<*const core::ffi::c_char> = Vec::new();
+        let options = match &effective {
+            Some(c) => c.to_options(&mut scratch),
+            None => CompileOptions::default(),
+        };
         let parse_options = ParseOptions::default();
         let mut encoder = NoopEncoder;
         let owned = self.source.clone();
@@ -142,6 +166,7 @@ impl Chunk {
             source: format!("return {}", self.source),
             name: self.name.clone(),
             environment: self.environment.clone(),
+            compiler: self.compiler.clone(),
         };
         if let Ok(f) = expr.into_function() {
             return f.call::<R>(());
@@ -188,6 +213,7 @@ impl Chunk {
             source: format!("return {}", self.source),
             name: self.name.clone(),
             environment: self.environment.clone(),
+            compiler: self.compiler.clone(),
         };
         if let Ok(f) = expr.into_function() {
             return f.call_async::<R>(()).await;

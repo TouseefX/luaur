@@ -114,13 +114,72 @@ verbatim: it shares one `&Lua` across a `std::thread::scope` and calls
 spirit as a single-threaded nested-method test plus compile-time `Send`
 assertions, a `!Sync` probe, and a real *move-the-VM-across-threads* test.
 
-Still deferred (later phases): the `Compiler`
-(chunk compile options / `set_vector_ctor`), sandbox/interrupts/fflags/heap-dump,
-the proc-macro `chunk!`, and the `#[userdata_impl]` attribute macro / userdata
-registry / `create_proxy` (including its `add_async_method*` surface). From
-`Scope`: the userdata-ref borrowing variants and `create_any_userdata*` (see
-above). From `serde`: serializable userdata (`create_ser_userdata*` / `wrap_ser`
-/ `Serialize for AnyUserData`).
+Phase 5a (the completeness pass) added the Luau-specific runtime surface:
+
+- **`Compiler`** builder (`set_optimization_level` / `set_debug_level` /
+  `set_coverage_level` / `set_type_info_level` / `set_vector_lib` /
+  `set_vector_ctor` / `set_vector_type` / `set_mutable_globals`) over
+  `luaur_compiler::CompileOptions`, plus `Lua::set_compiler` and
+  `Chunk::set_compiler` / `Chunk::call`.
+- **Sandboxing**: `Lua::sandbox(bool)` (over `luaL_sandbox` + `luaL_sandboxthread`,
+  restoring the original globals on exit), `Lua::set_safeenv(bool)`, and
+  `Thread::sandbox()`. `Thread::reset` now re-inherits the main globals (so a
+  reset sandboxed thread sees the main env, matching mlua's Luau `reset`).
+- **Interrupts**: `Lua::set_interrupt` / `Lua::remove_interrupt` + `VmState`
+  (over `lua_callbacks().interrupt` with a fixed trampoline + per-VM closure
+  store). Yielding from an interrupt (`lua_break`) is honored at yieldable points
+  and silently ignored at C-call boundaries (matching upstream); errors raised in
+  an interrupt propagate as `RuntimeError`. The `Thread` resume/`status` paths
+  learned the `LUA_BREAK` state (resumable, no values moved off the live frame).
+- **Memory**: `Lua::used_memory`, `Lua::set_memory_limit` (a limit-enforcing
+  allocator installed over the VM's `frealloc`/`ud`), the GC control ops
+  (`gc_collect` / `gc_stop` / `gc_restart` / `gc_is_running` / `gc_count` /
+  `gc_step` / `gc_inc` / `gc_set_mode`), the `state::{GcMode, GcIncParams,
+  GcGenParams}` types, and `Lua::set_memory_category` (over `lua_setmemcat`). The
+  `Error::MemoryError` variant is now produced on OOM (status `LUA_ERRMEM` / the
+  "not enough memory" message).
+- **Debug**: `Lua::inspect_stack` -> `Debug` / `DebugWhat` (over `lua_getinfo`).
+- **Type metatables**: `Lua::set_type_metatable::<Vector>` (over the global
+  per-type metatable slot) + the sealed `TypeMetatable` trait.
+- **`Lua::set_fflag`** (reports unknown — luaur's FFlags are a compile-time enum,
+  not a string-keyed registry; see the inline note in `tests/mlua_luau.rs`).
+
+Coverage: the extended `tests/mlua_luau.rs` (vectors-fastcall, vector_metatable,
+sandbox, sandbox_safeenv, sandbox_threads, interrupts, fflags, memory_category,
+integer round-trip, chunk_call) plus the new `tests/mlua_memory.rs`,
+`tests/mlua_hooks.rs`, `tests/mlua_debug.rs`, and `tests/mlua_byte_string.rs`.
+
+Genuinely DEFERRED in Phase 5a, each because Luau-as-luaur lacks the capability
+(noted inline at the matching test):
+
+- **`collectgarbage`/`loadstring` sandbox + loadstring tests** — luaur's base
+  library does not register `collectgarbage` or `loadstring` (upstream Luau adds
+  them only in the CLI/REPL, not `luaL_openlibs`). The sandbox read-only /
+  safeenv / thread parts ARE ported.
+- **`heap_dump`** — luaur's VM tracks only bytes-per-category
+  (`global_State::memcatbytes[256]`); it has no public API to enumerate live
+  objects by Lua type or by Rust userdata-type within a category, which
+  `HeapDump::size_by_type` / `size_by_userdata` require. (Per-category bytes ARE
+  exposed via the `Lua::memory_category_bytes` extension.)
+- **`integer64`'s native `42i` literal + `integer` library** — luaur registers
+  the i64 lib as `int64` (not `integer`) and does not surface the native i64 VM
+  type through `Value` (numbers are `f64`-backed). The plain i64 round-trip IS
+  covered.
+- **`typeof(error)` == "error"** — luaur-rt carries `Value::Error` as its message
+  *string* (no tagged error userdata), so `typeof` reports "string". The actual
+  (deviating) behavior is pinned in `test_typeof_error_deferred`.
+- **The Lua 5.x hook API** (`set_hook` / `HookTriggers` / `DebugEvent`) — does
+  not exist in Luau; mlua's whole `tests/hooks.rs` and `tests/debug.rs` are
+  themselves `#![cfg(not(feature = "luau"))]`. The Luau-native interrupt analog is
+  ported instead.
+- **`bstr` `BString` / `&BStr` conversions** — luaur-rt has no `bstr` feature; the
+  byte-string round-trip is ported through native `LuaString` raw bytes.
+
+Still deferred (later phases): the proc-macro `chunk!`, and the
+`#[userdata_impl]` attribute macro / userdata registry / `create_proxy`
+(including its `add_async_method*` surface). From `Scope`: the userdata-ref
+borrowing variants and `create_any_userdata*`. From `serde`: serializable
+userdata (`create_ser_userdata*` / `wrap_ser` / `Serialize for AnyUserData`).
 
 ## Adapted files
 
@@ -137,6 +196,10 @@ above). From `serde`: serializable userdata (`create_ser_userdata*` / `wrap_ser`
 | `tests/mlua_multi.rs`      | `tests/multi.rs`      |
 | `tests/mlua_chunk.rs`      | `tests/chunk.rs`      |
 | `tests/mlua_luau.rs`       | `tests/luau.rs` (Luau-relevant subset) |
+| `tests/mlua_memory.rs`     | `tests/memory.rs` (Luau-active subset) |
+| `tests/mlua_hooks.rs`      | `tests/hooks.rs` (Luau-native interrupt analog; the 5.x hook API is N/A under Luau) |
+| `tests/mlua_debug.rs`      | `tests/debug.rs` (`inspect_stack` analog; the `{:#?}` format test is deferred) |
+| `tests/mlua_byte_string.rs`| `tests/byte_string.rs` (native `LuaString` raw bytes; `bstr` conversions deferred) |
 | `tests/mlua_buffer.rs`     | `tests/buffer.rs` |
 | `tests/mlua_scope.rs`      | `tests/scope.rs` (portable subset) |
 | `tests/mlua_serde.rs`      | `tests/serde.rs` (non-userdata subset, gated `feature = "serde"`) |

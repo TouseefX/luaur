@@ -50,6 +50,16 @@ pub(crate) use luaur_vm::functions::lua_topointer::lua_topointer;
 pub(crate) use luaur_vm::enums::lua_gc_op::lua_GCOp;
 pub(crate) use luaur_vm::functions::lua_gc::lua_gc;
 
+// ---- interrupts / sandbox / memory categories (Luau) ---------------------
+pub(crate) use luaur_vm::functions::lua_callbacks::lua_callbacks;
+pub(crate) use luaur_vm::functions::lua_l_sandbox::lua_l_sandbox;
+pub(crate) use luaur_vm::functions::lua_l_sandboxthread::lua_l_sandboxthread;
+pub(crate) use luaur_vm::functions::lua_isyieldable::lua_isyieldable;
+pub(crate) use luaur_vm::functions::lua_rawcheckstack::lua_rawcheckstack;
+pub(crate) use luaur_vm::functions::lua_replace::lua_replace;
+pub(crate) use luaur_vm::functions::lua_setmemcat::lua_setmemcat;
+pub(crate) use luaur_vm::functions::lua_setsafeenv::lua_setsafeenv;
+
 // ---- metatable-aware tostring --------------------------------------------
 pub(crate) use luaur_vm::functions::lua_l_tolstring::lua_l_tolstring;
 
@@ -106,8 +116,6 @@ pub(crate) use luaur_vm::functions::lua_rawgeti::lua_rawgeti;
 #[cfg(feature = "async")]
 pub(crate) use luaur_vm::functions::lua_pushlightuserdatatagged::lua_pushlightuserdatatagged;
 #[cfg(feature = "async")]
-pub(crate) use luaur_vm::functions::lua_replace::lua_replace;
-#[cfg(feature = "async")]
 pub(crate) use luaur_vm::functions::lua_tointegerx::lua_tointegerx;
 #[cfg(feature = "async")]
 pub(crate) use luaur_vm::functions::lua_tolightuserdata::lua_tolightuserdata;
@@ -145,4 +153,8 @@ pub(crate) mod status {
     use super::c_int;
     pub const OK: c_int = 0;
     pub const YIELD: c_int = 1;
+    /// `LUA_BREAK` — produced when an interrupt callback yields the VM via
+    /// `lua_break`. The coroutine is still resumable (it continues from the
+    /// break point on the next `lua_resume`), so we treat it like a yield.
+    pub const BREAK: c_int = 6;
 }

@@ -32,6 +32,10 @@ use crate::ffi::*;
 use crate::sync::{MaybeSend, MaybeSync, NotSync, XRc, NOT_SYNC};
 use crate::value::Value;
 
+// Re-export the GC-control types here so they live at `luaur_rt::state::{..}`,
+// matching mlua's `mlua::state::{GcMode, GcIncParams, GcGenParams}` path.
+pub use crate::gc::{GcGenParams, GcIncParams, GcMode};
+
 /// The reference-counted, shared interior of a [`Lua`] instance.
 ///
 /// Held by [`Lua`] and cloned into every long-lived handle. When the last
@@ -48,7 +52,15 @@ pub(crate) struct LuaInner {
 impl Drop for LuaInner {
     fn drop(&mut self) {
         if self.owned && !self.state.is_null() {
-            unsafe { lua_close(self.state) }
+            unsafe {
+                // Reset the active memory category to 0 ("main") before closing.
+                // `Lua::set_memory_category` may have left a non-main category
+                // active; allocations made during teardown would otherwise be
+                // accounted to it, tripping `close_state`'s debug invariant that
+                // only category 0 is non-empty at shutdown.
+                crate::ffi::lua_setmemcat(self.state, 0);
+                lua_close(self.state)
+            }
         }
     }
 }
@@ -361,6 +373,7 @@ impl Lua {
             source: source.as_ref().to_string(),
             name: "chunk".to_string(),
             environment: None,
+            compiler: None,
         }
     }
 
@@ -492,7 +505,7 @@ impl Lua {
     /// Map a `lua_pcall`/`luau_load` status code plus the error object on the
     /// stack into an [`Error`]. Assumes a non-zero status and that the error
     /// object is on top of the stack; pops it.
-    pub(crate) fn pop_error(&self, _status: c_int) -> Error {
+    pub(crate) fn pop_error(&self, status: c_int) -> Error {
         let state = self.state();
         unsafe {
             // First, see if the error object is one of our *structured* error
@@ -515,6 +528,14 @@ impl Lua {
                 String::from_utf8_lossy(bytes).into_owned()
             };
             lua_pop(state, 1);
+            // `LUA_ERRMEM` (status 4) is an out-of-memory error (the VM set the
+            // error object to "not enough memory"); surface it as `MemoryError`
+            // so `set_memory_limit` callers can match it, mirroring mlua.
+            // `luau_load` reports OOM with a generic non-zero rc but the same
+            // "not enough memory" message, so we also detect it by message.
+            if status == 4 || msg == "not enough memory" {
+                return Error::MemoryError(msg);
+            }
             Error::RuntimeError(msg)
         }
     }

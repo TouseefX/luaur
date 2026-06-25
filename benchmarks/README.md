@@ -41,25 +41,40 @@ Median wall-clock **ms** (lower = faster); `(Nx)` is the slowdown vs C++ Luau.
 
 | Benchmark            | luaur       | tsuki       | C++ luau | mlua/luau | mlua/lua5.4 | mlua/luajit |
 |----------------------|-------------|-------------|----------|-----------|-------------|-------------|
-| fib(35)              | 658 (1.4x)  | 455 (1.0x)  | 475      | 420       | 427         | 60 (0.1x)   |
-| nbody (500k steps)   | 670 (1.4x)  | 739 (1.6x)  | 466      | 501       | 666         | 43 (0.1x)   |
-| mandelbrot 800²      | 1337 (1.0x) | 1127 (0.8x) | 1333     | 1321      | 1084        | 1259        |
-| matmul 200³          | 152 (1.9x)  | 126 (1.5x)  | 82       | 80        | 109         | 14 (0.2x)   |
-| tablesort 200k       | 27 (1.0x)   | 72 (2.7x)   | 26       | 26        | 63          | 51          |
-| strings 200k         | 56 (1.0x)   | 69 (1.3x)   | 55       | 58        | 70          | 33          |
+| fib(35)              | 650 (1.4x)  | 449 (1.0x)  | 471      | 418       | 421         | 58 (0.1x)   |
+| nbody (500k steps)   | 666 (1.4x)  | 740 (1.6x)  | 470      | 500       | 668         | 43 (0.1x)   |
+| mandelbrot 800²      | 1329 (1.0x) | 1123 (0.8x) | 1343     | 1331      | 1085        | 1256        |
+| matmul 200³          | 151 (1.9x)  | 127 (1.6x)  | 82       | 81        | 109         | 13 (0.2x)   |
+| tablesort 200k       | 27 (1.0x)   | 71 (2.8x)   | 26       | 25        | 62          | 50          |
+| strings 200k         | 58 (1.1x)   | 64 (1.2x)   | 55       | 55        | 71          | 34          |
 
-Takeaways:
+### Average across all benchmarks
 
-- **luaur vs C++ Luau:** within **1.0–1.9×** across the board — parity on the
-  float/loop, sort and string workloads, ~1.4× on recursion-heavy `fib`/`nbody`,
-  ~1.9× worst case on `matmul`. Good standing for a faithful pure-Rust port with
-  no JIT, and `mlua/luau` confirms the C engine behaves the same via FFI.
-- **luaur vs tsuki** (the other pure-Rust VM): a wash with trade-offs — luaur is
-  markedly faster on `tablesort` (2.7×), and ahead on `nbody`/`strings`; tsuki is
-  ahead on `fib`/`mandelbrot`/`matmul`. (They're different languages — Luau vs
-  Lua 5.4 — running equivalent source.)
-- **mlua/luajit** is the JIT ceiling: 5–15× faster on tight numeric loops, but no
-  advantage (sometimes slower) on library-bound work like `table.sort`.
+Geometric mean of the per-benchmark time ratios (the correct way to average
+speed ratios), with **luaur as the baseline**:
+
+| Implementation            | Engine             | Average vs luaur       |
+|---------------------------|--------------------|------------------------|
+| **luaur**                 | Luau, pure Rust    | 1.00× (baseline)       |
+| C++ luau (reference)      | Luau, C++          | **1.26× faster**       |
+| mlua → luau               | Luau, C via FFI    | 1.27× faster           |
+| mlua → Lua 5.4 (PUC-Rio)  | Lua 5.4, C         | ~parity (1.01× slower) |
+| tsuki                     | Lua 5.4, pure Rust | 1.08× slower           |
+| mlua → LuaJIT             | LuaJIT, JIT        | 3.5× faster            |
+
+Averaged across these six workloads:
+
+- luaur runs at **~0.79× the speed of the reference C++ Luau** (luau ~1.26×
+  faster) — a strong result for a faithful, JIT-free pure-Rust port. `mlua→luau`
+  lands in the same place, confirming the C engine behaves identically via FFI.
+- luaur is **on par with stock PUC-Rio Lua 5.4** and **~1.08× faster than tsuki**,
+  the other pure-Rust Lua VM — competitive with both the canonical C interpreter
+  and the other Rust interpreter.
+- **LuaJIT is ~3.5× faster** overall (and 5–15× on tight numeric loops) — the
+  tracing-JIT ceiling that no plain interpreter here approaches.
+
+Per workload, luaur ranges from parity (mandelbrot, tablesort, strings), to ~1.4×
+(recursion-heavy fib/nbody), to ~1.9× worst case (matmul) versus C++ Luau.
 
 ## Compilation speed
 

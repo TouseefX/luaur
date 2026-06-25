@@ -61,6 +61,28 @@ for prog in PROGS:
             cells.append("%21s" % ("%.0f" % (v[1] * 1000) + (" (%.1fx)" % rel if rel else "")))
     print("%-11s" % prog + "".join(cells))
 
+import math
+BASE = os.environ.get("BASE", "luaur")
+basevals = {p: results[(p, BASE)][1] for p in PROGS
+            if results.get((p, BASE)) and results[(p, BASE)][0] != "ERR"}
+if basevals:
+    print("\n# Average across all benchmarks — geometric mean of per-benchmark time ratios (baseline = %s)\n" % BASE)
+    print("%-12s %14s   %s" % ("engine", "geomean time", "meaning"))
+    print("-" * 60)
+    for l in labels:
+        ratios = [results[(p, l)][1] / basevals[p] for p in PROGS
+                  if results.get((p, l)) and results[(p, l)][0] != "ERR" and p in basevals]
+        if not ratios:
+            continue
+        g = math.exp(sum(math.log(r) for r in ratios) / len(ratios))
+        if abs(g - 1.0) < 1e-9:
+            meaning = "(baseline)"
+        elif g < 1:
+            meaning = "%.2fx faster than %s" % (1 / g, BASE)
+        else:
+            meaning = "%.2fx slower than %s" % (g, BASE)
+        print("%-12s %12.2fx   %s" % (l, g, meaning))
+
 print("\n# Correctness — output checksum agreement vs %s\n" % REF)
 for prog in PROGS:
     ro = results.get((prog, REF)); refval = ro[2] if ro and ro[0] != "ERR" else None

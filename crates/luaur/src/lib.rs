@@ -29,7 +29,7 @@ pub use luaur_rt as rt;
 pub use luaur_vm as vm;
 
 mod check;
-pub use check::check;
+pub use check::{check, check_with_definitions};
 
 // The headline high-level, mlua-style API. Re-exported flat at the crate root
 // so `luaur::Lua`, `luaur::Table`, etc. are available directly.
@@ -51,7 +51,7 @@ pub use luaur_rt::{
 
 /// Common entry points, re-exported for convenience.
 pub mod prelude {
-    pub use crate::{check, compile, eval};
+    pub use crate::{check, check_with_definitions, compile, eval};
     pub use luaur_ast::records::parse_options::ParseOptions;
     pub use luaur_compiler::records::compile_options::CompileOptions;
 

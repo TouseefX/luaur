@@ -151,11 +151,22 @@ impl CheckConfigResolver {
     }
 }
 
+/// The fixed package name under which host definitions are registered. Mirrors
+/// `Fixture::loadDefinition`'s `"@test"`; `@`-prefixed names are the convention
+/// for synthetic (non-file) modules.
+const HOST_DEFINITIONS_PACKAGE: &str = "@host";
+
 /// The fallible body, run under `catch_unwind` (like `check_script`) so a panic
 /// in the type checker surfaces as a diagnostic rather than unwinding into the
 /// caller. Returns the collected `"<line>: <message>"` diagnostics, or an empty
 /// `Vec` when the source type-checks clean.
-fn run_check(source: &str) -> Vec<String> {
+///
+/// `definitions`, when present and non-empty, is Luau definition-file syntax
+/// (`declare function …`, `declare class …`, `declare x: T`) describing the host
+/// surface; it is registered into the global scope *after* the builtins (so it
+/// may reference them) and *before* the script is checked, exactly as a `Fixture`
+/// registers a definition file.
+fn run_check(source: &str, definitions: Option<&str>) -> Vec<String> {
     let mut diagnostics = Vec::new();
 
     let mut file_resolver = CheckFileResolver::new(source);
@@ -185,6 +196,55 @@ fn run_check(source: &str) -> Vec<String> {
         freeze((*frontend_ptr).globals.global_types_mut());
     }
 
+    // Register host type definitions, if any, into the same global scope the
+    // builtins live in. This is the unique Luau capability: a script then
+    // type-checks against the host-provided surface (the Rust functions /
+    // userdata exposed to the runtime). Pattern mirrors `Fixture::loadDefinition`:
+    // unfreeze -> loadDefinitionFile(globals, globalScope, …) -> freeze.
+    if let Some(defs) = definitions {
+        if !defs.is_empty() {
+            unsafe {
+                unfreeze((*frontend_ptr).globals.global_types_mut());
+                let target_scope = (*frontend_ptr).globals.global_scope();
+                let result = (*frontend_ptr).load_definition_file(
+                    &mut (*frontend_ptr).globals,
+                    target_scope,
+                    defs,
+                    String::from(HOST_DEFINITIONS_PACKAGE),
+                    /* captureComments */ false,
+                    /* typeCheckForAutocomplete */ false,
+                );
+                freeze((*frontend_ptr).globals.global_types_mut());
+
+                // Malformed host definitions are a usage error, surfaced with a
+                // "host definitions:" prefix so they are distinguishable from
+                // script diagnostics. A failed load did not persist anything, so
+                // checking the script against a half-built surface is pointless —
+                // return immediately.
+                if !result.success {
+                    for err in &result.parse_result.errors {
+                        let mut line = (err.get_location().begin.line + 1).to_string();
+                        line.push_str(": host definitions: ");
+                        line.push_str(err.get_message());
+                        diagnostics.push(line);
+                    }
+                    if let Some(module) = &result.module {
+                        for err in &module.errors {
+                            let mut line = (err.location.begin.line + 1).to_string();
+                            line.push_str(": host definitions: ");
+                            line.push_str(&to_string_type_error(err));
+                            diagnostics.push(line);
+                        }
+                    }
+                    if diagnostics.is_empty() {
+                        diagnostics.push("host definitions: failed to load".to_string());
+                    }
+                    return diagnostics;
+                }
+            }
+        }
+    }
+
     // Luau::CheckResult checkResult = frontend.check("main");
     let check_result =
         frontend.check_module_name_optional_frontend_options(&MAIN_MODULE.to_string(), None);
@@ -208,13 +268,61 @@ fn run_check(source: &str) -> Vec<String> {
 /// assert!(luaur::check("local x: number = \"oops\"").is_err());
 /// ```
 pub fn check(source: &str) -> Result<(), Vec<String>> {
+    check_inner(source, None)
+}
+
+/// Type-check Luau `source` with extra host type `definitions` in scope.
+///
+/// `definitions` is Luau **definition-file syntax** describing the host-provided
+/// globals — the Rust functions, values, and userdata you expose to the runtime
+/// (e.g. via [`luaur_rt`](crate)'s `create_function` / `UserData`):
+///
+/// ```text
+/// declare function add(a: number, b: number): number
+/// declare config: { name: string, retries: number }
+/// declare class Vec2
+///     x: number
+///     y: number
+///     function magnitude(self): number
+/// end
+/// ```
+///
+/// The Luau VM is dynamically typed, so the runtime does not need these — but the
+/// *static* checker has no knowledge of the host surface unless you tell it. This
+/// is a capability `mlua` cannot offer (Lua has no static types): a script you are
+/// about to run can be type-checked against exactly the API the host exposes.
+///
+/// Returns `Ok(())` when the source type-checks clean against the builtins plus
+/// the host definitions, or `Err` of the diagnostics (`"line: message"`, 1-based).
+/// Errors in the definitions themselves are reported with a `"host definitions:"`
+/// prefix.
+///
+/// ```
+/// // The script references a host function the checker would otherwise reject:
+/// luaur::check("local n: number = add(1, 2)").unwrap_err();
+/// luaur::check_with_definitions(
+///     "local n: number = add(1, 2)",
+///     "declare function add(a: number, b: number): number",
+/// )
+/// .unwrap();
+/// ```
+pub fn check_with_definitions(source: &str, definitions: &str) -> Result<(), Vec<String>> {
+    check_inner(source, Some(definitions))
+}
+
+/// Shared body of [`check`] / [`check_with_definitions`]: run the checker under
+/// `catch_unwind` (so a panic in the type checker becomes a diagnostic rather
+/// than unwinding into the caller) and fold the diagnostics into a `Result`.
+fn check_inner(source: &str, definitions: Option<&str>) -> Result<(), Vec<String>> {
     // try { ... } catch (const std::exception& e) { ... } — a panic inside the
     // checker becomes a single diagnostic.
     let owned = source.to_string();
-    let diagnostics = match std::panic::catch_unwind(move || run_check(&owned)) {
-        Ok(diagnostics) => diagnostics,
-        Err(payload) => vec![panic_message(&payload)],
-    };
+    let owned_defs = definitions.map(|d| d.to_string());
+    let diagnostics =
+        match std::panic::catch_unwind(move || run_check(&owned, owned_defs.as_deref())) {
+            Ok(diagnostics) => diagnostics,
+            Err(payload) => vec![panic_message(&payload)],
+        };
 
     if diagnostics.is_empty() {
         Ok(())
@@ -237,11 +345,74 @@ fn panic_message(payload: &(dyn core::any::Any + Send)) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::check;
+    use super::{check, check_with_definitions};
 
     #[test]
     fn check_accepts_well_typed_assignment() {
         check("local x: number = 1").expect("well-typed source should check clean");
+    }
+
+    #[test]
+    fn definitions_introduce_a_host_function() {
+        // Without the declaration the global `add` is unknown; under --!strict
+        // that is an error.
+        let bare = check("--!strict\nlocal n: number = add(1, 2)\nreturn n");
+        assert!(
+            bare.is_err(),
+            "undeclared host function should not type-check: {bare:?}"
+        );
+
+        // Declaring it makes the same script check clean — and with the right type.
+        check_with_definitions(
+            "--!strict\nlocal n: number = add(1, 2)\nreturn n",
+            "declare function add(a: number, b: number): number",
+        )
+        .expect("declared host function should type-check");
+    }
+
+    #[test]
+    fn definitions_are_type_checked_against() {
+        // `add` returns number, so assigning it to a string must fail even though
+        // the call itself is well-formed.
+        let errors = check_with_definitions(
+            "--!strict\nlocal s: string = add(1, 2)\nreturn s",
+            "declare function add(a: number, b: number): number",
+        )
+        .expect_err("number result assigned to string should fail");
+        let joined = errors.join("\n");
+        assert!(
+            joined.contains("number") && joined.contains("string"),
+            "diagnostic should mention the number/string mismatch: {joined}"
+        );
+    }
+
+    #[test]
+    fn definitions_can_declare_a_host_value() {
+        check_with_definitions(
+            "--!strict\nlocal name: string = config.name\nreturn name",
+            "declare config: { name: string, retries: number }",
+        )
+        .expect("declared host value field access should type-check");
+    }
+
+    #[test]
+    fn malformed_definitions_are_reported_with_prefix() {
+        let errors = check_with_definitions(
+            "return 1",
+            "declare function add(a: number, b: number: number", // missing ')'
+        )
+        .expect_err("malformed host definitions should fail");
+        let joined = errors.join("\n");
+        assert!(
+            joined.contains("host definitions:"),
+            "definition errors should carry the host-definitions prefix: {joined}"
+        );
+    }
+
+    #[test]
+    fn empty_definitions_behave_like_plain_check() {
+        check_with_definitions("local x: number = 1", "")
+            .expect("empty definitions should be a no-op");
     }
 
     #[test]

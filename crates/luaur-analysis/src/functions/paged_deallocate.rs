@@ -33,10 +33,19 @@ pub fn paged_deallocate(ptr: *mut core::ffi::c_void, size: usize) {
 
     #[cfg(target_os = "windows")]
     {
-        extern "C" {
-            fn _aligned_free(ptr: *mut core::ffi::c_void);
-        }
-        unsafe { _aligned_free(ptr) };
+        // The matching `paged_allocate` freeze-path used `VirtualAlloc`, so this
+        // block is OS virtual memory and MUST be released with `VirtualFree(...,
+        // MEM_RELEASE)`. The previous `_aligned_free` (a CRT-heap function) was
+        // called on `VirtualAlloc`'d memory — a catastrophic allocator mismatch
+        // that corrupted the heap and crashed ~every type-checking test on Windows
+        // with 0xC0000005 (the test fixtures set DebugLuauFreezeArena=true, so all
+        // their type arenas take this path). Linux/macOS were correct (mmap/munmap),
+        // which is why the bug was Windows-only and invisible to valgrind on Linux.
+        // MEM_RELEASE requires the size argument to be 0.
+        use windows_sys::Win32::System::Memory::{VirtualFree, MEM_RELEASE};
+        let _ = size;
+        let rc = unsafe { VirtualFree(ptr, 0, MEM_RELEASE) };
+        LUAU_ASSERT!(rc != 0);
     }
 
     #[cfg(target_os = "freebsd")]

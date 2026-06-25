@@ -8,7 +8,10 @@ impl NativeStackGuard {
             return true;
         }
 
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        // Linux is included now that the ctor (native_stack_guard, alt_b) populates
+        // `low`/`high` there via pthread_getattr_np; previously Linux fell through
+        // to the unconditional `true`, so the guard never tripped.
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
         {
             let probe: u8 = 0;
             let sp = &probe as *const u8 as usize;
@@ -17,7 +20,7 @@ impl NativeStackGuard {
             return remaining > FInt::LuauStackGuardThreshold.get() as usize;
         }
 
-        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
         true
     }
 }

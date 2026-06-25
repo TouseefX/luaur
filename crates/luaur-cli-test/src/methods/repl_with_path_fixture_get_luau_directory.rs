@@ -20,7 +20,14 @@ pub fn repl_with_path_fixture_get_luau_directory(
     // relative to CWD (CARGO_MANIFEST_DIR is at or under CWD for cargo/nextest,
     // so a "./..." form always exists).
     {
-        let vendored_abs = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures");
+        // `CARGO_MANIFEST_DIR` uses the OS separator — backslashes on Windows —
+        // so normalize to forward slashes. `cwd` below is normalized the same way;
+        // without this the `strip_prefix` mismatched (backslash vs slash), the
+        // function returned an absolute `D:\...` path, and the require resolver
+        // (which requires a `./`/`../`/`@` prefix) rejected it — failing every
+        // require-by-string test on Windows.
+        let vendored_abs = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures").replace('\\', "/");
+        let vendored_abs = vendored_abs.as_str();
         if is_directory(&format!("{}/tests/require", vendored_abs)) {
             match type_ {
                 // Cache keys are built from the absolute form; keep it absolute.

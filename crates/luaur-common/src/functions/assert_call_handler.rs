@@ -16,6 +16,18 @@ LUAU_NOINLINE! {
             }
         }
 
+        // No custom handler: print the assertion before LUAU_DEBUGBREAK traps the
+        // process (matches the C++ default `assertCallHandler`, which writes the
+        // message to stderr). Without this the failure is a silent `int 3`, which on
+        // Windows surfaces only as a 0xC0000003 abort with no indication of which
+        // assert fired — making platform-specific assertion failures undiagnosable.
+        #[cfg(feature = "std")]
+        unsafe {
+            let expr = core::ffi::CStr::from_ptr(expression).to_string_lossy();
+            let f = core::ffi::CStr::from_ptr(file).to_string_lossy();
+            eprintln!("LUAU_ASSERT failed: {} ({}:{})", expr, f, line);
+        }
+
         1
     }
 }

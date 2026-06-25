@@ -297,13 +297,16 @@ fn reduce_runs_three_arg_reduction_to_marker() {
         "case.luau",
         "local UNIQUE_MARKER_42 = 1\nlocal unused = 2\nlocal also_unused = 3\nreturn UNIQUE_MARKER_42\n",
     );
-    // `command` uses {} as the script-path placeholder; `cat {}` echoes the
-    // (reduced) script to stdout, and the search text is the marker the reducer
-    // must keep present for the "bug" to reproduce.
+    // `command` uses {} as the script-path placeholder; it echoes the (reduced)
+    // script to stdout, and the search text is the marker the reducer must keep
+    // present for the "bug" to reproduce. The reducer runs the command through
+    // the platform shell, so use each shell's file-dumping builtin: `type` under
+    // cmd.exe on Windows, `cat` under sh elsewhere.
+    let dump_command = if cfg!(windows) { "type {}" } else { "cat {}" };
     let assert = bin("luaur-reduce")
         .current_dir(dir.path())
         .arg(&path)
-        .arg("cat {}")
+        .arg(dump_command)
         .arg("UNIQUE_MARKER_42")
         .assert()
         .success();

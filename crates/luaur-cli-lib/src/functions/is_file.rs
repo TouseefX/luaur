@@ -1,27 +1,12 @@
-use crate::functions::from_utf_8::from_utf_8;
-
 pub fn is_file(path: &str) -> bool {
-    #[cfg(windows)]
-    {
-        use windows_sys::Win32::Storage::FileSystem::{
-            GetFileAttributesW, FILE_ATTRIBUTE_DIRECTORY, INVALID_FILE_ATTRIBUTES,
-        };
-
-        let path_u16 = from_utf_8(path);
-        unsafe {
-            let file_attributes = GetFileAttributesW(path_u16.as_ptr());
-            if file_attributes == INVALID_FILE_ATTRIBUTES {
-                return false;
-            }
-            (file_attributes & FILE_ATTRIBUTE_DIRECTORY) == 0
-        }
-    }
-
-    #[cfg(not(windows))]
-    {
-        use std::os::unix::fs::MetadataExt;
-        std::fs::symlink_metadata(path)
-            .map(|meta| (meta.mode() & 0xf000) == 0x8000)
-            .unwrap_or(false)
-    }
+    // Probe the filesystem through `std::fs` (like `is_directory`) rather than
+    // raw Win32 wide-char FFI. The previous Windows path widened via
+    // `from_utf_8` — whose UTF-16 buffer is NOT NUL-terminated — and handed it
+    // to `GetFileAttributesW`, which reads until a NUL: undefined behaviour that
+    // made existing files intermittently report as missing (e.g. require could
+    // not descend into subdirectories). `symlink_metadata` + `is_file()` mirrors
+    // the POSIX `lstat`/`S_IFREG` check and is correct on every platform.
+    std::fs::symlink_metadata(path)
+        .map(|meta| meta.is_file())
+        .unwrap_or(false)
 }

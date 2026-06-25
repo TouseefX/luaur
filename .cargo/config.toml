@@ -37,3 +37,12 @@ rustflags = [
     "-C",
     "link-arg=/STACK:67108864",
 ]
+
+# The GNU Windows toolchain (x86_64-pc-windows-gnu) ignores the MSVC `/STACK:`
+# syntax above, so a gnu-built binary keeps the small default PE stack reserve and
+# overflows (STATUS_STACK_OVERFLOW, 0xC00000FD) on the same deep recursion that the
+# MSVC build survives. Raise the reserve to 64 MiB via the GNU linker's `--stack`
+# flag so `cargo install` on a gnu toolchain matches MSVC behaviour. Scoped to
+# `windows + gnu` so it never touches the (also-gnu) Linux target.
+[target.'cfg(all(windows, target_env = "gnu"))']
+rustflags = ["-C", "link-arg=-Wl,--stack,67108864"]

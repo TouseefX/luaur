@@ -25,9 +25,13 @@ pub unsafe fn localtime_r(timep: *const time_t, result: *mut tm) -> *mut tm {
     #[cfg(target_os = "windows")]
     {
         extern "C" {
-            fn localtime_s(result: *mut tm, timep: *const time_t) -> core::ffi::c_int;
+            // MSVC's `localtime_s` is an inline wrapper in <time.h>, so it has no
+            // exported symbol to link against ("unresolved external symbol
+            // localtime_s"). The real UCRT export is `_localtime64_s`, taking a
+            // `__time64_t` (our `time_t = i64`).
+            fn _localtime64_s(result: *mut tm, timep: *const time_t) -> core::ffi::c_int;
         }
-        if localtime_s(result, timep) == 0 {
+        if _localtime64_s(result, timep) == 0 {
             result
         } else {
             core::ptr::null_mut()

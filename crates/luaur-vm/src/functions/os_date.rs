@@ -35,9 +35,11 @@ unsafe fn os_gmtime_r(timep: *const time_t, result: *mut tm) -> *mut tm {
     #[cfg(target_os = "windows")]
     {
         extern "C" {
-            fn gmtime_s(result: *mut tm, timep: *const time_t) -> c_int;
+            // `gmtime_s` is inline in MSVC's <time.h>; link the real UCRT export
+            // `_gmtime64_s` (__time64_t = i64) instead.
+            fn _gmtime64_s(result: *mut tm, timep: *const time_t) -> c_int;
         }
-        if gmtime_s(result, timep) == 0 {
+        if _gmtime64_s(result, timep) == 0 {
             result
         } else {
             core::ptr::null_mut()

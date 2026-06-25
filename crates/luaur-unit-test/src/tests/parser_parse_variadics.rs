@@ -67,9 +67,9 @@ fn parser_parse_variadics() {
     assert!(bar_fn.arg_types.tail_type.is_null());
     let return_tp = unsafe { &*bar_fn.return_types };
     let explicit_pack = unsafe {
-        luaur_ast::rtti::ast_node_as::<luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit>(
-            return_tp as *const _ as *mut luaur_ast::records::ast_node::AstNode,
-        )
+        luaur_ast::rtti::ast_node_as::<
+            luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit,
+        >(return_tp as *const _ as *mut luaur_ast::records::ast_node::AstNode)
     };
     assert!(!explicit_pack.is_null());
     let explicit_pack = unsafe { &*explicit_pack };

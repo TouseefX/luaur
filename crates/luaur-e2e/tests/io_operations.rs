@@ -16,7 +16,11 @@ use std::io::Write;
 #[test]
 fn reads_script_from_file() {
     let (_dir, path) = write_script("f.luau", "print('from-file')\n");
-    bin("luaur").arg(&path).assert().success().stdout(predicate::str::contains("from-file"));
+    bin("luaur")
+        .arg(&path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("from-file"));
 }
 
 #[test]
@@ -66,7 +70,8 @@ fn ast_reads_source_from_stdin_dash() {
         .assert()
         .success();
     let stdout = String::from_utf8(out.get_output().stdout.clone()).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON from stdin AST");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("valid JSON from stdin AST");
     assert_eq!(parsed["root"]["type"], "AstStatBlock");
 }
 
@@ -95,7 +100,8 @@ fn profile_writes_profile_out_in_cwd() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("work.luau");
     let mut f = std::fs::File::create(&path).unwrap();
-    f.write_all(b"local s=0\nfor i=1,50000 do s=s+i end\nreturn s\n").unwrap();
+    f.write_all(b"local s=0\nfor i=1,50000 do s=s+i end\nreturn s\n")
+        .unwrap();
     f.flush().unwrap();
     bin("luaur")
         .current_dir(dir.path())
@@ -103,7 +109,10 @@ fn profile_writes_profile_out_in_cwd() {
         .arg(&path)
         .assert()
         .success();
-    assert!(dir.path().join("profile.out").exists(), "profile.out not written");
+    assert!(
+        dir.path().join("profile.out").exists(),
+        "profile.out not written"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -136,11 +145,9 @@ fn require_relative_module_across_temp_dir() {
 fn nonexistent_file_errors_without_panic() {
     let dir = tempfile::tempdir().unwrap();
     let missing = dir.path().join("ghost.luau");
-    bin("luaur")
-        .arg(&missing)
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("Error opening").and(predicate::str::contains("panicked").not()));
+    bin("luaur").arg(&missing).assert().failure().stderr(
+        predicate::str::contains("Error opening").and(predicate::str::contains("panicked").not()),
+    );
 }
 
 #[test]

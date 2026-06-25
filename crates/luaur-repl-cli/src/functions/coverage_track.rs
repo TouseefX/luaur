@@ -11,6 +11,8 @@ use crate::functions::coverage_init::G_COVERAGE;
 pub fn coverage_track(l: *mut lua_State, funcindex: i32) {
     unsafe {
         let ref_id = lua_ref(l, funcindex);
-        (*core::ptr::addr_of_mut!(G_COVERAGE)).functions.push(ref_id);
+        (*core::ptr::addr_of_mut!(G_COVERAGE))
+            .functions
+            .push(ref_id);
     }
 }

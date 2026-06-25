@@ -74,7 +74,12 @@ pub fn register_refinement_extern_type_fixture_types(frontend: &mut Frontend) {
 
     let is_a_params = arena.add_type_pack_initializer_list_type_id(&[inst, string_type]);
     let is_a_rets = arena.add_type_pack_initializer_list_type_id(&[boolean_type]);
-    let is_a = arena.add_type(FunctionType::function_type_new(is_a_params, is_a_rets, None, false));
+    let is_a = arena.add_type(FunctionType::function_type_new(
+        is_a_params,
+        is_a_rets,
+        None,
+        false,
+    ));
     attach_magic_function(is_a, make_magic_instance_is_a());
 
     {
@@ -82,7 +87,8 @@ pub fn register_refinement_extern_type_fixture_types(frontend: &mut Frontend) {
             .expect("expected Instance extern type");
         i.props
             .insert(String::from("Name"), Property::rw_type_id(string_type));
-        i.props.insert(String::from("IsA"), Property::rw_type_id(is_a));
+        i.props
+            .insert(String::from("IsA"), Property::rw_type_id(is_a));
     }
 
     // ExternScriptConnection { Disconnect: (ExternScriptConnection) -> () }

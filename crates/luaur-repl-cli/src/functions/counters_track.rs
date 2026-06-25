@@ -11,6 +11,8 @@ use crate::functions::counters_init::G_COUNTERS;
 pub fn counters_track(l: *mut lua_State, funcindex: i32) {
     unsafe {
         let ref_id = lua_ref(l, funcindex);
-        (*core::ptr::addr_of_mut!(G_COUNTERS)).module_refs.push(ref_id);
+        (*core::ptr::addr_of_mut!(G_COUNTERS))
+            .module_refs
+            .push(ref_id);
     }
 }

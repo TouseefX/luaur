@@ -11,6 +11,7 @@
 //! ```
 
 use crate::records::demo_file_resolver::DemoFileResolver;
+use core::ffi::CStr;
 use luaur_analysis::records::module_info::ModuleInfo;
 use luaur_analysis::records::type_check_limits::TypeCheckLimits;
 use luaur_analysis::type_aliases::module_name_file_resolver::ModuleName;
@@ -18,7 +19,6 @@ use luaur_ast::records::ast_expr::AstExpr;
 use luaur_ast::records::ast_expr_global::AstExprGlobal;
 use luaur_ast::records::ast_node::AstNode;
 use luaur_ast::rtti::ast_node_as;
-use core::ffi::CStr;
 
 impl DemoFileResolver {
     pub fn resolve_module(

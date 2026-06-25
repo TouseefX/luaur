@@ -28,8 +28,8 @@ use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 
 use crate::error::Result;
-use crate::sys::lua_State;
 use crate::state::Lua;
+use crate::sys::lua_State;
 use crate::table::Table;
 use crate::value::Value;
 
@@ -169,7 +169,8 @@ pub trait LuaSerdeExt {
     /// Deserializes a [`Value`] into any serde-deserializable object with
     /// options.
     #[allow(clippy::wrong_self_convention)]
-    fn from_value_with<T: DeserializeOwned>(&self, value: Value, options: de::Options) -> Result<T>;
+    fn from_value_with<T: DeserializeOwned>(&self, value: Value, options: de::Options)
+        -> Result<T>;
 }
 
 impl LuaSerdeExt for Lua {

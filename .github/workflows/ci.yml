@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel an in-progress run when a newer commit is pushed to the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # The generated, per-node crate layout has no incremental wins in CI and
+  # incremental artifacts only bloat the cache.
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  test:
+    name: Test — stable / ubuntu
+    runs-on: ubuntu-latest
+    # ~16k files across 24 crates; the cold build is large. Generous ceiling.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Shared build cache keyed on Cargo.lock; makes subsequent runs fast.
+      - name: Cache cargo + target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      # Build the whole workspace (libs + CLI bins) so a bin-only break is caught
+      # even though nextest only compiles test targets.
+      - name: Build workspace
+        run: cargo build --workspace --locked
+
+      # Default features: the ~5.6k translated unit tests + conformance + e2e.
+      # RUST_MIN_STACK (.cargo/config.toml) and the nextest thread/timeout config
+      # (.config/nextest.toml) are picked up automatically.
+      - name: Test workspace (default features)
+        run: cargo nextest run --workspace --locked
+
+      # Opt-in feature surface. async and send are mutually exclusive, so the
+      # async-side superset and the send side run as two separate invocations.
+      # typecheck pulls in the static type checker (luaur-analysis).
+      - name: Test luaur-rt (async, serde, macros, typecheck)
+        run: cargo nextest run -p luaur-rt --locked --features async,serde,macros,typecheck
+
+      - name: Test luaur-rt (send, typecheck)
+        run: cargo nextest run -p luaur-rt --locked --features send,typecheck
+
+      # Doctests (nextest does not run them). Umbrella runs with its default
+      # features, which include `typecheck`, so the check_with_definitions doc
+      # example is exercised here.
+      - name: Doctests (luaur + luaur-rt)
+        run: cargo test --doc -p luaur -p luaur-rt --locked
+
+  wasm:
+    name: Build wasm32 — luaur-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable Rust (+ wasm32 target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo + target
+        uses: Swatinem/rust-cache@v2
+
+      # The headline claim — the compiler, VM and type checker build for
+      # wasm32-unknown-unknown with no C toolchain — verified on every push.
+      - name: Build luaur-web for wasm32-unknown-unknown
+        run: cargo build -p luaur-web --target wasm32-unknown-unknown --features wasm --locked

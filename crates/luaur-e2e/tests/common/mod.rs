@@ -34,15 +34,12 @@ pub fn bin(name: &str) -> Command {
         target.join("debug").join(name),
         target.join("release").join(name),
     ];
-    let path = candidates
-        .iter()
-        .find(|p| p.exists())
-        .unwrap_or_else(|| {
-            panic!(
-                "could not locate binary {name}; looked in {:?}. Build the workspace bins first.",
-                candidates
-            )
-        });
+    let path = candidates.iter().find(|p| p.exists()).unwrap_or_else(|| {
+        panic!(
+            "could not locate binary {name}; looked in {:?}. Build the workspace bins first.",
+            candidates
+        )
+    });
     Command::new(path)
 }
 

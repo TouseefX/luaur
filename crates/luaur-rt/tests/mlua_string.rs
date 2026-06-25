@@ -21,8 +21,12 @@ fn test_string_compare() {
     // Tests that all comparisons we want to have are usable
     with_str(&lua, "teststring", |t| assert_eq!(t, "teststring")); // &str
     with_str(&lua, "teststring", |t| assert_eq!(t, b"teststring")); // &[u8; N]
-    with_str(&lua, "teststring", |t| assert_eq!(t, b"teststring".to_vec())); // Vec<u8>
-    with_str(&lua, "teststring", |t| assert_eq!(t, "teststring".to_string())); // String
+    with_str(&lua, "teststring", |t| {
+        assert_eq!(t, b"teststring".to_vec())
+    }); // Vec<u8>
+    with_str(&lua, "teststring", |t| {
+        assert_eq!(t, "teststring".to_string())
+    }); // String
     with_str(&lua, "teststring", |t| assert_eq!(t, t)); // LuaString
     with_str(&lua, "teststring", |t| {
         assert_eq!(t, Cow::from(b"teststring".as_ref())) // Cow (borrowed)
@@ -64,8 +68,14 @@ fn test_string_views() -> Result<()> {
     let empty: LuaString = globals.get("empty")?;
 
     assert_eq!(ok.to_str()?, "null bytes are valid utf-8, wh\0 knew?");
-    assert_eq!(ok.to_string_lossy(), "null bytes are valid utf-8, wh\0 knew?");
-    assert_eq!(ok.as_bytes(), b"null bytes are valid utf-8, wh\0 knew?".to_vec());
+    assert_eq!(
+        ok.to_string_lossy(),
+        "null bytes are valid utf-8, wh\0 knew?"
+    );
+    assert_eq!(
+        ok.as_bytes(),
+        b"null bytes are valid utf-8, wh\0 knew?".to_vec()
+    );
 
     assert!(err.to_str().is_err());
     assert_eq!(err.as_bytes(), b"but \xff isn't :(".to_vec());
@@ -91,7 +101,9 @@ fn test_string_from_bytes() -> Result<()> {
 fn test_string_hash() -> Result<()> {
     let lua = Lua::new();
 
-    let set: HashSet<LuaString> = lua.load(r#"return {"hello", "world", "abc", 321}"#).eval()?;
+    let set: HashSet<LuaString> = lua
+        .load(r#"return {"hello", "world", "abc", 321}"#)
+        .eval()?;
     assert_eq!(set.len(), 4);
     assert!(set.contains(&lua.create_string("hello")));
     assert!(set.contains(&lua.create_string("world")));

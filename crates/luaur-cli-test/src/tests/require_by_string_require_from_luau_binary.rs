@@ -48,7 +48,12 @@ fn require_by_string_require_from_luau_binary() {
             path_str.as_ptr() as *mut c_char,
         ];
 
-        assert_eq!(repl_main(2, argv.as_mut_ptr()), 0, "replMain failed for {}", path);
+        assert_eq!(
+            repl_main(2, argv.as_mut_ptr()),
+            0,
+            "replMain failed for {}",
+            path
+        );
 
         let _ = &mut path_str;
     }

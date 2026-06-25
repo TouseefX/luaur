@@ -5,7 +5,9 @@ fn parser_recovery_of_parenthesized_expressions() {
     use luaur_ast::records::parse_options::ParseOptions;
     use luaur_ast::visit::AstVisitable;
 
-    impl luaur_ast::records::ast_visitor::AstVisitor for crate::records::count_ast_nodes::CountAstNodes {
+    impl luaur_ast::records::ast_visitor::AstVisitor
+        for crate::records::count_ast_nodes::CountAstNodes
+    {
         fn visit_node(&mut self, node: *mut core::ffi::c_void) -> bool {
             crate::records::count_ast_nodes::CountAstNodes::visit(
                 self,

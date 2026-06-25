@@ -84,7 +84,13 @@ fn require_by_string_check_clear_cache_entry() {
             "Cache did not contain module result"
         );
 
-        lua_pushcclosurek(l, Some(luarequire_clearcacheentry), core::ptr::null(), 0, None);
+        lua_pushcclosurek(
+            l,
+            Some(luarequire_clearcacheentry),
+            core::ptr::null(),
+            0,
+            None,
+        );
         lua_pushstring(l, cache_key.as_ptr());
         lua_call(l, 1, 0);
 

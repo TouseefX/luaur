@@ -1,12 +1,12 @@
 //! C++ `FragmentAutocompleteResult fragmentAutocomplete(...)`
 //! (FragmentAutocomplete.cpp:1373-1413).
-use crate::enums::fragment_type_check_status::FragmentTypeCheckStatus;
 use crate::enums::fragment_autocomplete_waypoint::FragmentAutocompleteWaypoint;
+use crate::enums::fragment_type_check_status::FragmentTypeCheckStatus;
 use crate::functions::autocomplete_autocomplete_core::autocomplete_;
+use crate::functions::freeze::freeze;
 use crate::functions::report_waypoint::report_waypoint;
 use crate::functions::typecheck_fragment_fragment_autocomplete_alt_b::typecheck_fragment;
 use crate::functions::unfreeze::unfreeze;
-use crate::functions::freeze::freeze;
 use crate::records::autocomplete_result::AutocompleteResult;
 use crate::records::fragment_autocomplete_result::FragmentAutocompleteResult;
 use crate::records::frontend::Frontend;

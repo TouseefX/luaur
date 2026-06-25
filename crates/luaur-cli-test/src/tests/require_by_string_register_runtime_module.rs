@@ -34,17 +34,23 @@ fn require_by_string_register_runtime_module() {
     use alloc::string::String;
     use luaur_require::functions::luarequire_registermodule::luarequire_registermodule;
     use luaur_vm::functions::lua_call::lua_call;
-    use luaur_vm::macros::lua_newtable::lua_newtable;
     use luaur_vm::functions::lua_pushcclosurek::lua_pushcclosurek;
     use luaur_vm::functions::lua_pushstring::lua_pushstring;
     use luaur_vm::functions::lua_settable::lua_settable;
+    use luaur_vm::macros::lua_newtable::lua_newtable;
     use luaur_vm::records::lua_state::lua_State;
 
     let mut fixture = ReplWithPathFixture::new();
     let l = fixture.l as *mut lua_State;
 
     unsafe {
-        lua_pushcclosurek(l, Some(luarequire_registermodule), core::ptr::null(), 0, None);
+        lua_pushcclosurek(
+            l,
+            Some(luarequire_registermodule),
+            core::ptr::null(),
+            0,
+            None,
+        );
         lua_pushstring(l, c"@test/helloworld".as_ptr());
         lua_newtable(l);
         lua_pushstring(l, c"hello".as_ptr());

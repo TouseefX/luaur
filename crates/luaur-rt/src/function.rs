@@ -1,10 +1,10 @@
 //! The [`Function`] handle. Mirrors `mlua::Function`.
 
 use crate::error::Result;
-use crate::sys::*;
 use crate::multi::MultiValue;
 use crate::state::{Lua, LuaRef};
 use crate::sync::{MaybeSend, NotSync, XRc, NOT_SYNC};
+use crate::sys::*;
 use crate::traits::{FromLuaMulti, IntoLuaMulti};
 
 /// A handle to a callable Lua value (a Lua closure or a Rust function).
@@ -346,11 +346,7 @@ impl Function {
                 if p.is_null() {
                     None
                 } else {
-                    Some(
-                        std::ffi::CStr::from_ptr(p)
-                            .to_string_lossy()
-                            .into_owned(),
-                    )
+                    Some(std::ffi::CStr::from_ptr(p).to_string_lossy().into_owned())
                 }
             };
             let what = cstr(ar.what).unwrap_or_default();
@@ -364,9 +360,7 @@ impl Function {
             // `=`/`@` for Lua/main functions. C functions keep their VM-reported
             // source verbatim (e.g. `=[C]`), matching mlua.
             let source = cstr(ar.source).map(|s| {
-                if (what == "Lua" || what == "main")
-                    && (s.starts_with('=') || s.starts_with('@'))
-                {
+                if (what == "Lua" || what == "main") && (s.starts_with('=') || s.starts_with('@')) {
                     s[1..].to_string()
                 } else {
                     s
@@ -486,7 +480,8 @@ where
     fn into_lua(self, lua: &Lua) -> Result<crate::value::Value> {
         let func = self.func;
         let f = lua.create_function(move |_lua, args: A| {
-            func.call(args).map_err(crate::error::ExternalError::into_lua_err)
+            func.call(args)
+                .map_err(crate::error::ExternalError::into_lua_err)
         })?;
         Ok(crate::value::Value::Function(f))
     }

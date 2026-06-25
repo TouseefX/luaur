@@ -172,7 +172,9 @@ fn test_thread_reset() -> Result<()> {
     // in any non-running state and re-binding its body function.
     let lua = Lua::new();
 
-    let func: Function = lua.load(r#"function(x) coroutine.yield(x + 1) end"#).eval()?;
+    let func: Function = lua
+        .load(r#"function(x) coroutine.yield(x + 1) end"#)
+        .eval()?;
     let thread = lua.create_thread(lua.load("return 0").into_function()?)?;
     assert!(thread.reset(func.clone()).is_ok());
 

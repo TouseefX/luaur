@@ -47,7 +47,8 @@ impl Reducer {
                 if !ifs.is_null() {
                     append((*ifs).thenbody);
                     if !(*ifs).elsebody.is_null() {
-                        let else_ptr = (*ifs).elsebody as *mut luaur_ast::records::ast_node::AstNode;
+                        let else_ptr =
+                            (*ifs).elsebody as *mut luaur_ast::records::ast_node::AstNode;
                         let else_block = ast_node_as::<AstStatBlock>(else_ptr);
                         if !else_block.is_null() {
                             append(else_block);

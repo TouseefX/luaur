@@ -105,9 +105,7 @@ impl Unifier {
                 }
                 return match (&(*ap).tail, &(*bp).tail) {
                     (None, None) => true,
-                    (Some(ta), Some(tb)) => {
-                        self.reflexive_equal_type_pack_id(*ta, *tb, depth - 1)
-                    }
+                    (Some(ta), Some(tb)) => self.reflexive_equal_type_pack_id(*ta, *tb, depth - 1),
                     _ => false,
                 };
             }

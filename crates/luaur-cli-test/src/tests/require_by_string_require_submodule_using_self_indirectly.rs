@@ -36,8 +36,6 @@ fn require_by_string_require_submodule_using_self_indirectly() {
     let path = repl_with_path_fixture_get_luau_directory(&fixture, PathType::Relative)
         + "/tests/require/without_config/nested_module_requirer";
     repl_with_path_fixture_run_protected_require(&fixture, &path);
-    fixture.assert_output_contains_all(&[
-        String::from("true"),
-        String::from("result from submodule"),
-    ]);
+    fixture
+        .assert_output_contains_all(&[String::from("true"), String::from("result from submodule")]);
 }

@@ -14,6 +14,7 @@ use crate::records::constraint_list::ConstraintList;
 use crate::records::data_flow_graph_builder::DataFlowGraphBuilder;
 use crate::records::dcr_logger::DcrLogger;
 use crate::records::expected_type_visitor::ExpectedTypeVisitor;
+use crate::records::fragment_type_check_result::FragmentTypeCheckResult;
 use crate::records::frontend::Frontend;
 use crate::records::frontend_options::FrontendOptions;
 use crate::records::i_fragment_autocomplete_reporter::IFragmentAutocompleteReporter;
@@ -25,7 +26,6 @@ use crate::records::subtyping::Subtyping;
 use crate::records::type_check_limits::TypeCheckLimits;
 use crate::records::type_function_runtime::TypeFunctionRuntime;
 use crate::records::unifier_shared_state::UnifierSharedState;
-use crate::records::fragment_type_check_result::FragmentTypeCheckResult;
 use crate::type_aliases::module_ptr_module::ModulePtr;
 use crate::type_aliases::scope_ptr_type::ScopePtr;
 use alloc::string::String;
@@ -35,9 +35,9 @@ use core::ptr::NonNull;
 use luaur_ast::records::allocator::Allocator;
 use luaur_ast::records::ast_stat_block::AstStatBlock;
 use luaur_ast::records::position::Position;
+use luaur_common::macros::luau_timetrace_scope::LUAU_TIMETRACE_SCOPE;
 use luaur_common::records::dense_hash_map::DenseHashMap;
 use luaur_common::records::dense_hash_set::DenseHashSet;
-use luaur_common::macros::luau_timetrace_scope::LUAU_TIMETRACE_SCOPE;
 use luaur_common::{FFlag, FInt};
 
 #[allow(clippy::too_many_arguments)]
@@ -161,8 +161,7 @@ pub fn typecheck_fragment_(
     fresh_scope_value.interior_free_type_packs = Some(Vec::new());
     fresh_scope_value.location = unsafe { (*root).base.base.location };
     let fresh_child_of_nearest_scope: ScopePtr = Arc::new(fresh_scope_value);
-    let fresh_scope_ptr =
-        Arc::as_ptr(&fresh_child_of_nearest_scope) as *const Scope as *mut Scope;
+    let fresh_scope_ptr = Arc::as_ptr(&fresh_child_of_nearest_scope) as *const Scope as *mut Scope;
 
     let mut cgraph_storage = if FFlag::LuauConstraintGraph.get() {
         Some(ConstraintGraph {
@@ -206,17 +205,16 @@ pub fn typecheck_fragment_(
 
     // incrementalModule->scopes.emplace_back(root->location, freshChildOfNearestScope);
     unsafe {
-        (*module_ptr)
-            .scopes
-            .push(((*root).base.base.location, fresh_child_of_nearest_scope.clone()));
+        (*module_ptr).scopes.push((
+            (*root).base.base.location,
+            fresh_child_of_nearest_scope.clone(),
+        ));
     }
     cg.root_scope = fresh_scope_ptr;
 
     // Create module-local scope for the type function environment
-    let local_type_function_scope: ScopePtr = Arc::new(Scope::new(
-        cg.type_function_scope.as_ref().unwrap(),
-        0,
-    ));
+    let local_type_function_scope: ScopePtr =
+        Arc::new(Scope::new(cg.type_function_scope.as_ref().unwrap(), 0));
     unsafe {
         let lhs = Arc::as_ptr(&local_type_function_scope) as *const Scope as *mut Scope;
         (*lhs).location = (*root).base.base.location;
@@ -225,7 +223,10 @@ pub fn typecheck_fragment_(
         (*cg.type_function_runtime).root_scope = local_type_function_scope;
     }
 
-    report_waypoint(reporter, FragmentAutocompleteWaypoint::CloneAndSquashScopeStart);
+    report_waypoint(
+        reporter,
+        FragmentAutocompleteWaypoint::CloneAndSquashScopeStart,
+    );
     clone_types_from_fragment(
         &mut clone_state,
         Arc::as_ptr(closest_scope),
@@ -236,7 +237,10 @@ pub fn typecheck_fragment_(
         root,
         fresh_scope_ptr,
     );
-    report_waypoint(reporter, FragmentAutocompleteWaypoint::CloneAndSquashScopeEnd);
+    report_waypoint(
+        reporter,
+        FragmentAutocompleteWaypoint::CloneAndSquashScopeEnd,
+    );
 
     cg.visit_fragment_root(&fresh_child_of_nearest_scope, root);
 
@@ -247,7 +251,10 @@ pub fn typecheck_fragment_(
         }
     }
 
-    report_waypoint(reporter, FragmentAutocompleteWaypoint::ConstraintSolverStart);
+    report_waypoint(
+        reporter,
+        FragmentAutocompleteWaypoint::ConstraintSolverStart,
+    );
 
     // Initialize the constraint solver and run it.
     // C++ uses the fragment ConstraintSolver constructor:

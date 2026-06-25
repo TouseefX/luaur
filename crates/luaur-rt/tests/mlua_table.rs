@@ -103,7 +103,9 @@ fn test_table_push_pop() -> Result<()> {
     assert_eq!(table2.len()?, 2);
     // The sequence part of `table2` itself is empty (writes go to proxy_table).
     assert_eq!(
-        table2.sequence_values::<i64>().collect::<Result<Vec<_>>>()?,
+        table2
+            .sequence_values::<i64>()
+            .collect::<Result<Vec<_>>>()?,
         vec![]
     );
     assert_eq!(table2.pop::<i64>()?, 345);

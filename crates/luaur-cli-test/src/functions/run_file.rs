@@ -115,7 +115,9 @@ pub fn run_file(name: *const c_char, gl: *mut lua_State, repl: bool) -> bool {
         if repl {
             // Upstream calls runReplImpl(L) here. No CLI-test invocation passes
             // -i, so this branch is unreachable on the tested path.
-            panic!("interactive REPL after file execution is not supported in the CLI-test harness");
+            panic!(
+                "interactive REPL after file execution is not supported in the CLI-test harness"
+            );
         }
 
         lua_pop(gl, 1);

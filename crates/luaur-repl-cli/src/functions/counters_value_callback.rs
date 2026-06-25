@@ -13,7 +13,10 @@ pub unsafe fn counters_value_callback(context: *mut c_void, kind: i32, line: i32
         .last_mut()
         .expect("countersValueCallback called before countersFunctionCallback");
 
-    let entry = function.counters.entry(line).or_insert_with(LineCounters::default);
+    let entry = function
+        .counters
+        .entry(line)
+        .or_insert_with(LineCounters::default);
 
     if kind == CodeGenCounter::RegularBlockExecuted as i32 {
         entry.regularExecuted += hits;

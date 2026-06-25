@@ -31,5 +31,7 @@ unsafe fn lua_pushvector_4(L: *mut lua_State, x: f32, y: f32, z: f32, w: f32) {
 
 #[allow(non_snake_case)]
 unsafe fn lua_pushvector_3(L: *mut lua_State, x: f32, y: f32, z: f32) {
-    luaur_vm::functions::lua_pushvector_lapi_alt_b::lua_pushvector_lua_state_f32_f32_f32(L, x, y, z);
+    luaur_vm::functions::lua_pushvector_lapi_alt_b::lua_pushvector_lua_state_f32_f32_f32(
+        L, x, y, z,
+    );
 }

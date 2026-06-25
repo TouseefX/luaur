@@ -75,8 +75,10 @@ impl IrRegAllocX64 {
                     mem(
                         SizeX64::none,
                         emergency_temp,
-                        core::mem::offset_of!(luaur_vm::records::global_state::global_State, ecbdata)
-                            as i32
+                        core::mem::offset_of!(
+                            luaur_vm::records::global_state::global_State,
+                            ecbdata
+                        ) as i32
                             + extra_offset,
                     ),
                 );

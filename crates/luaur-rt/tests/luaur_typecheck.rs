@@ -61,7 +61,11 @@ fn with_definitions_introduces_and_checks_host_fn() {
         "declare function add(a: number, b: number): number",
     )
     .expect_err("number result assigned to string should fail");
-    let joined: String = misuse.iter().map(|d| d.message.clone()).collect::<Vec<_>>().join("\n");
+    let joined: String = misuse
+        .iter()
+        .map(|d| d.message.clone())
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         joined.contains("number") && joined.contains("string"),
         "diagnostic should mention number/string: {joined}"
@@ -122,7 +126,8 @@ fn add_definitions_persists_for_chunk_check() {
 
     // Chunk::check sees the accumulated definitions.
     let c = lua.load("--!strict\nlocal s: string = greet(\"world\")\nreturn s");
-    c.check().expect("chunk should type-check against host defs");
+    c.check()
+        .expect("chunk should type-check against host defs");
 }
 
 #[test]

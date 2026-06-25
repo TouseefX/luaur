@@ -6,8 +6,8 @@ use std::collections::HashMap;
 
 use crate::compiler::Compiler;
 use crate::error::{Error, Result};
-use crate::sys::*;
 use crate::state::Lua;
+use crate::sys::*;
 use crate::table::Table;
 use crate::thread::Thread;
 

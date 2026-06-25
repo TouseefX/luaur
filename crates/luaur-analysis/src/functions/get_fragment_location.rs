@@ -203,8 +203,10 @@ pub fn get_fragment_location(
         } else if let Some(else_body) = unsafe { (*if_stmt).elsebody.as_mut() } {
             let else_body_ptr: *mut AstStat = else_body;
             if let Some(else_if) = unsafe {
-                ast_node_as::<AstStatIf>(else_body_ptr as *mut luaur_ast::records::ast_node::AstNode)
-                    .as_mut()
+                ast_node_as::<AstStatIf>(
+                    else_body_ptr as *mut luaur_ast::records::ast_node::AstNode,
+                )
+                .as_mut()
             } {
                 let else_if_condition_extents =
                     Location::new(unsafe { (*else_if).base.base.location.begin }, unsafe {

@@ -231,7 +231,9 @@ impl<T: FValueList + Copy + 'static> FValue<T> {
             let mut cur = T::head().load(Ordering::Relaxed) as *const FValue<T>;
             while !cur.is_null() {
                 let fvalue = &*cur;
-                let name = core::ffi::CStr::from_ptr(fvalue.name).to_str().unwrap_or("");
+                let name = core::ffi::CStr::from_ptr(fvalue.name)
+                    .to_str()
+                    .unwrap_or("");
                 if !skip(name) {
                     *fvalue.value.get() = value;
                 }

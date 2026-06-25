@@ -58,7 +58,12 @@ pub fn typecheck_fragment(
 
     let module_ptr = Arc::as_ptr(&module) as *mut Module;
     let names: *mut AstNameTable = unsafe {
-        Arc::as_ptr((*module_ptr).names.as_ref().expect("module must have names")) as *mut AstNameTable
+        Arc::as_ptr(
+            (*module_ptr)
+                .names
+                .as_ref()
+                .expect("module must have names"),
+        ) as *mut AstNameTable
     };
     let stale_root = unsafe { (*module_ptr).root };
 

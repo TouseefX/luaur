@@ -17,7 +17,8 @@ impl Compiler {
         unsafe {
             let expr = rtti::ast_node_as::<AstExprLocal>(node as *mut _);
             if !expr.is_null() {
-                if luaur_common::FFlag::LuauExportValueSyntax.get() && (*(*expr).local).is_exported {
+                if luaur_common::FFlag::LuauExportValueSyntax.get() && (*(*expr).local).is_exported
+                {
                     return LValue {
                         kind: Kind::Kind_IndexName,
                         reg: self.get_export_table_reg(node as *mut _),

@@ -36,8 +36,6 @@ fn require_by_string_require_init_lua() {
     let path = repl_with_path_fixture_get_luau_directory(&fixture, PathType::Relative)
         + "/tests/require/without_config/lua";
     repl_with_path_fixture_run_protected_require(&fixture, &path);
-    fixture.assert_output_contains_all(&[
-        String::from("true"),
-        String::from("result from init.lua"),
-    ]);
+    fixture
+        .assert_output_contains_all(&[String::from("true"), String::from("result from init.lua")]);
 }

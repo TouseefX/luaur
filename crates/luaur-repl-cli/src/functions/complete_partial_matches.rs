@@ -44,7 +44,8 @@ pub unsafe fn complete_partial_matches(
 
                 if !key.is_empty() && required_value_type && startsWith(&key, prefix) {
                     let completed_component = &key[prefix.len()..];
-                    let mut completion = String::with_capacity(edit_buffer.len() + completed_component.len() + 1);
+                    let mut completion =
+                        String::with_capacity(edit_buffer.len() + completed_component.len() + 1);
                     completion.push_str(edit_buffer);
                     completion.push_str(completed_component);
                     if value_type == lua_Type::LUA_TFUNCTION as i32 {

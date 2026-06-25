@@ -104,20 +104,18 @@ impl Subtyping {
             // Otherwise, if the sub table has an indexer whose key type is a
             // super type of string, then use that as the "property" type, e.g.
             // `{ [string]: number } <: { foo: number }`.
-            else if sub_table.indexer.is_some()
-                && {
-                    let sub_indexer = sub_table.indexer.as_ref().unwrap();
-                    unsafe {
-                        self.is_covariant_with_subtyping_environment_type_id_type_id_not_null_scope(
-                            env,
-                            (*self.builtin_types).stringType,
-                            sub_indexer.index_type,
-                            scope,
-                        )
-                        .is_subtype
-                    }
+            else if sub_table.indexer.is_some() && {
+                let sub_indexer = sub_table.indexer.as_ref().unwrap();
+                unsafe {
+                    self.is_covariant_with_subtyping_environment_type_id_type_id_not_null_scope(
+                        env,
+                        (*self.builtin_types).stringType,
+                        sub_indexer.index_type,
+                        scope,
+                    )
+                    .is_subtype
                 }
-            {
+            } {
                 let sub_indexer = sub_table.indexer.as_ref().unwrap();
                 if super_prop.is_shared() {
                     if FFlag::LuauReadOnlyIndexers.get() && sub_indexer.is_read_only {

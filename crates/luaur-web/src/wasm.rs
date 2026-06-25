@@ -146,5 +146,9 @@ pub fn check(source: &str) -> String {
         return "No errors.".to_string();
     }
 
-    unsafe { core::ffi::CStr::from_ptr(result_ptr).to_string_lossy().into_owned() }
+    unsafe {
+        core::ffi::CStr::from_ptr(result_ptr)
+            .to_string_lossy()
+            .into_owned()
+    }
 }

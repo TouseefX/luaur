@@ -15,7 +15,8 @@ impl UsageFinder {
         let def = dfg.get_def(global as *const AstExpr);
 
         self.global_defs_to_pre_populate.push((name, def));
-        self.symbols_to_refine.push((def, Symbol::from_global(name)));
+        self.symbols_to_refine
+            .push((def, Symbol::from_global(name)));
 
         true
     }

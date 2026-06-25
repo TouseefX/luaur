@@ -18,16 +18,18 @@ use predicates::prelude::*;
 
 #[test]
 fn repl_help_long_exits_zero_with_usage() {
-    bin("luaur")
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("Usage:").and(predicate::str::contains("interactive REPL")));
+    bin("luaur").arg("--help").assert().success().stdout(
+        predicate::str::contains("Usage:").and(predicate::str::contains("interactive REPL")),
+    );
 }
 
 #[test]
 fn repl_help_short_exits_zero() {
-    bin("luaur").arg("-h").assert().success().stdout(predicate::str::contains("Usage:"));
+    bin("luaur")
+        .arg("-h")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Usage:"));
 }
 
 #[test]
@@ -98,7 +100,10 @@ fn analyze_clean_on_good_strict_file() {
 fn analyze_unknown_flag_is_skipped_faithfully() {
     // CLI/src/Analyze.cpp ignores unknown `-`-prefixed args; with no files there
     // is nothing to check, so it exits 0. (Faithful behavior, not a crash.)
-    bin("luaur-analyze").arg("--no-such-flag").assert().success();
+    bin("luaur-analyze")
+        .arg("--no-such-flag")
+        .assert()
+        .success();
 }
 
 #[test]
@@ -129,9 +134,13 @@ fn ast_emits_valid_json_for_real_file() {
     let (_dir, path) = write_script("prog.luau", "return 1 + 2\n");
     let out = bin("luaur-ast").arg(&path).assert().success();
     let stdout = String::from_utf8(out.get_output().stdout.clone()).expect("utf8 stdout");
-    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("AST output must be valid JSON");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("AST output must be valid JSON");
     // The root node is an AstStatBlock.
-    assert_eq!(parsed["root"]["type"], "AstStatBlock", "unexpected AST root: {parsed}");
+    assert_eq!(
+        parsed["root"]["type"], "AstStatBlock",
+        "unexpected AST root: {parsed}"
+    );
 }
 
 #[test]
@@ -238,7 +247,10 @@ fn bytecode_writes_summary_json_file() {
     let contents = std::fs::read_to_string(&summary).expect("summary file must exist");
     let parsed: serde_json::Value =
         serde_json::from_str(&contents).expect("summary must be valid JSON");
-    assert!(parsed.is_object(), "summary JSON should be an object: {parsed}");
+    assert!(
+        parsed.is_object(),
+        "summary JSON should be an object: {parsed}"
+    );
 }
 
 #[test]

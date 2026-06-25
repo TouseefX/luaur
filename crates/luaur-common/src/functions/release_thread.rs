@@ -12,7 +12,10 @@ use crate::records::global_context::GlobalContext;
 use crate::records::thread_context::ThreadContext;
 
 pub fn release_thread(context: &GlobalContext, thread_context: *mut ThreadContext) {
-    let mut state = context.state.lock().expect("TimeTrace GlobalContext mutex poisoned");
+    let mut state = context
+        .state
+        .lock()
+        .expect("TimeTrace GlobalContext mutex poisoned");
 
     if let Some(pos) = state.threads.iter().position(|t| t.0 == thread_context) {
         state.threads.remove(pos);

@@ -32,10 +32,5 @@ pub fn main() {
     let mut reducer = Reducer::new();
 
     // reducer.run(std::move(scriptName), std::move(appName), *source, searchText);
-    reducer.run_string_string_string_view_string_view(
-        script_name,
-        app_name,
-        &source,
-        &search_text,
-    );
+    reducer.run_string_string_string_view_string_view(script_name, app_name, &source, &search_text);
 }

@@ -46,57 +46,56 @@ impl ConstraintSolver {
                 variance: crate::enums::subtyping_variance::SubtypingVariance::Invalid,
             };
 
-        let mut result = ConstraintSolver {
-            arena: unsafe { (*normalizer).arena },
-            builtin_types: unsafe { (*normalizer).builtin_types },
-            ice_reporter: unsafe { (*type_function_runtime).ice.clone() },
-            normalizer: normalizer as *mut Normalizer,
-            type_function_runtime: type_function_runtime as *mut TypeFunctionRuntime,
-            constraint_set,
-            constraints: alloc::vec::Vec::new(),
-            scope_to_function: core::ptr::null_mut(),
-            root_scope: core::ptr::null_mut(),
-            module: Some(module),
-            dfg,
-            solver_constraints: alloc::vec::Vec::new(),
-            solver_constraint_limit: FInt::LuauSolverConstraintLimit.get() as usize,
-            unsolved_constraints: alloc::vec::Vec::new(),
-            deprecated_blocked_constraints: std::collections::HashMap::new(),
-            deprecated_blocked: std::collections::HashMap::new(),
-            instantiated_aliases: luaur_common::records::dense_hash_map::DenseHashMap::new(
-                empty_instantiation_signature,
-            ),
-            upper_bound_contributors: luaur_common::records::dense_hash_map::DenseHashMap::new(
-                core::ptr::null(),
-            ),
-            deprecated_type_to_constraint_set: std::collections::HashMap::new(),
-            deprecated_constraint_to_mutated_types:
-                luaur_common::records::dense_hash_map::DenseHashMap::new(core::ptr::null()),
-            uninhabited_type_functions: luaur_common::records::dense_hash_set::DenseHashSet::new(
-                core::ptr::null(),
-            ),
-            seen_constraints: luaur_common::records::dense_hash_map::DenseHashMap::new(
-                empty_subtype_constraint,
-            ),
-            generalized_types_: luaur_common::records::dense_hash_set::DenseHashSet::new(
-                core::ptr::null(),
-            ),
-            generalized_types: core::ptr::null(),
-            errors: alloc::vec::Vec::new(),
-            module_resolver: module_resolver as *mut ModuleResolver,
-            require_cycles,
-            logger,
-            limits: limits.clone(),
-            type_functions_to_finalize: luaur_common::records::dense_hash_map::DenseHashMap::new(
-                core::ptr::null(),
-            ),
-            opts: ToStringOptions {
-                exhaustive: true,
-                ..ToStringOptions::default()
-            },
-            cgraph,
-            subtyping: subtyping as *mut Subtyping,
-        };
+        let mut result =
+            ConstraintSolver {
+                arena: unsafe { (*normalizer).arena },
+                builtin_types: unsafe { (*normalizer).builtin_types },
+                ice_reporter: unsafe { (*type_function_runtime).ice.clone() },
+                normalizer: normalizer as *mut Normalizer,
+                type_function_runtime: type_function_runtime as *mut TypeFunctionRuntime,
+                constraint_set,
+                constraints: alloc::vec::Vec::new(),
+                scope_to_function: core::ptr::null_mut(),
+                root_scope: core::ptr::null_mut(),
+                module: Some(module),
+                dfg,
+                solver_constraints: alloc::vec::Vec::new(),
+                solver_constraint_limit: FInt::LuauSolverConstraintLimit.get() as usize,
+                unsolved_constraints: alloc::vec::Vec::new(),
+                deprecated_blocked_constraints: std::collections::HashMap::new(),
+                deprecated_blocked: std::collections::HashMap::new(),
+                instantiated_aliases: luaur_common::records::dense_hash_map::DenseHashMap::new(
+                    empty_instantiation_signature,
+                ),
+                upper_bound_contributors: luaur_common::records::dense_hash_map::DenseHashMap::new(
+                    core::ptr::null(),
+                ),
+                deprecated_type_to_constraint_set: std::collections::HashMap::new(),
+                deprecated_constraint_to_mutated_types:
+                    luaur_common::records::dense_hash_map::DenseHashMap::new(core::ptr::null()),
+                uninhabited_type_functions:
+                    luaur_common::records::dense_hash_set::DenseHashSet::new(core::ptr::null()),
+                seen_constraints: luaur_common::records::dense_hash_map::DenseHashMap::new(
+                    empty_subtype_constraint,
+                ),
+                generalized_types_: luaur_common::records::dense_hash_set::DenseHashSet::new(
+                    core::ptr::null(),
+                ),
+                generalized_types: core::ptr::null(),
+                errors: alloc::vec::Vec::new(),
+                module_resolver: module_resolver as *mut ModuleResolver,
+                require_cycles,
+                logger,
+                limits: limits.clone(),
+                type_functions_to_finalize:
+                    luaur_common::records::dense_hash_map::DenseHashMap::new(core::ptr::null()),
+                opts: ToStringOptions {
+                    exhaustive: true,
+                    ..ToStringOptions::default()
+                },
+                cgraph,
+                subtyping: subtyping as *mut Subtyping,
+            };
 
         result.constraints = borrow_constraints(&result.constraint_set.constraints);
         result.scope_to_function = &mut result.constraint_set.scope_to_function as *mut _;

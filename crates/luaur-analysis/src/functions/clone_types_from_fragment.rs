@@ -84,8 +84,7 @@ pub fn clone_types_from_fragment(
                 .into_owned()
         };
         if let Some((sym, binding)) = stale.linear_search_for_binding_pair(&name, true) {
-            let cloned_ty =
-                clone_incremental_type(binding.type_id, dest, clone_state, dest_scope);
+            let cloned_ty = clone_incremental_type(binding.type_id, dest, clone_state, dest_scope);
             let cloned_binding = clone_incremental_binding(&binding, dest, clone_state, dest_scope);
             unsafe {
                 *(*dest_scope).lvalue_types.get_or_insert(d) = cloned_ty;

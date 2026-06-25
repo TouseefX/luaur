@@ -57,7 +57,10 @@ fn parser_parse_declarations() {
     assert_eq!(func.params.types.size, 1);
 
     let ret_type_pack = unsafe {
-        luaur_ast::rtti::ast_node_as::<luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit>(func.ret_types as *mut luaur_ast::records::ast_node::AstNode).as_ref()
+        luaur_ast::rtti::ast_node_as::<
+            luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit,
+        >(func.ret_types as *mut luaur_ast::records::ast_node::AstNode)
+        .as_ref()
     };
     assert!(ret_type_pack.is_some());
     let ret_type_pack = ret_type_pack.unwrap();

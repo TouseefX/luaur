@@ -72,10 +72,10 @@ pub use luaur_rt::{
 
 /// Common entry points, re-exported for convenience.
 pub mod prelude {
-    pub use crate::{compile, eval};
     /// The type-check helpers (the `typecheck` feature; on by default).
     #[cfg(feature = "typecheck")]
     pub use crate::{check, check_with_definitions};
+    pub use crate::{compile, eval};
     pub use luaur_ast::records::parse_options::ParseOptions;
     pub use luaur_compiler::records::compile_options::CompileOptions;
 
@@ -207,6 +207,9 @@ mod tests {
     #[test]
     fn eval_reports_runtime_error() {
         let err = eval("error('boom')").expect_err("eval should fail");
-        assert!(err.contains("boom"), "error message should mention boom: {err}");
+        assert!(
+            err.contains("boom"),
+            "error message should mention boom: {err}"
+        );
     }
 }

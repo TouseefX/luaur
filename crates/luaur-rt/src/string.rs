@@ -1,9 +1,9 @@
 //! The [`LuaString`] handle. Mirrors `mlua::String`.
 
 use crate::error::{Error, Result};
-use crate::sys::*;
 use crate::state::{Lua, LuaRef};
 use crate::sync::{NotSync, XRc, NOT_SYNC};
+use crate::sys::*;
 
 /// A garbage-collected Lua string.
 ///
@@ -56,12 +56,10 @@ impl LuaString {
     /// Mirrors `mlua::String::to_str` (returns an owned `String` here).
     pub fn to_str(&self) -> Result<String> {
         let bytes = self.as_bytes();
-        String::from_utf8(bytes).map_err(|e| {
-            Error::FromLuaConversionError {
-                from: "string",
-                to: "String".to_string(),
-                message: Some(format!("invalid utf-8: {e}")),
-            }
+        String::from_utf8(bytes).map_err(|e| Error::FromLuaConversionError {
+            from: "string",
+            to: "String".to_string(),
+            message: Some(format!("invalid utf-8: {e}")),
         })
     }
 

@@ -18,11 +18,11 @@
 //! `Error` mapping.
 
 use crate::error::{Error, Result};
-use crate::sys::*;
 use crate::function::Function;
 use crate::multi::MultiValue;
 use crate::state::{Lua, LuaRef};
 use crate::sync::{NotSync, XRc, NOT_SYNC};
+use crate::sys::*;
 use crate::traits::{FromLuaMulti, IntoLua, IntoLuaMulti};
 
 /// Status of a Lua thread (coroutine). Mirrors `mlua::ThreadStatus`.
@@ -305,7 +305,11 @@ impl Thread {
             if lua_checkstack(co, 2) == 0 {
                 return;
             }
-            crate::sys::lua_pushlightuserdatatagged(parent, crate::async_support::poll_terminate(), 0);
+            crate::sys::lua_pushlightuserdatatagged(
+                parent,
+                crate::async_support::poll_terminate(),
+                0,
+            );
             lua_xmove(parent, co, 1);
             let _ = lua_resume(co, parent, 1);
             lua_settop(co, 0);

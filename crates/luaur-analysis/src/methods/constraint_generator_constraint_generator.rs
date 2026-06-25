@@ -50,9 +50,8 @@ impl ConstraintGenerator {
             scope_to_function: luaur_common::records::dense_hash_map::DenseHashMap::new(
                 core::ptr::null_mut(),
             ),
-            ast_type_alias_defining_scopes: luaur_common::records::dense_hash_map::DenseHashMap::new(
-                core::ptr::null(),
-            ),
+            ast_type_alias_defining_scopes:
+                luaur_common::records::dense_hash_map::DenseHashMap::new(core::ptr::null()),
             dfg: dfg.as_ptr(),
             refinement_arena: crate::records::refinement_arena_refinement::RefinementArena {
                 allocator: crate::records::typed_allocator::TypedAllocator::default(),

@@ -23,7 +23,8 @@ fn parser_parse_declared_table_checked_member() {
     luaur_common::LUAU_ASSERT!(unsafe { (*pr.root).body.size } == 1);
     // C++: `AstStat* root = *(pr.root->body.data);` — the FIRST statement, not the block.
     let root = unsafe { *(*pr.root).body.data.add(0) };
-    let glob = unsafe { luaur_ast::rtti::ast_node_as::<AstStatDeclareGlobal>(root as *mut AstNode) };
+    let glob =
+        unsafe { luaur_ast::rtti::ast_node_as::<AstStatDeclareGlobal>(root as *mut AstNode) };
     luaur_common::LUAU_ASSERT!(glob.is_null() == false);
     let glob = unsafe { &*glob };
     let tbl = unsafe { luaur_ast::rtti::ast_node_as::<AstTypeTable>(glob.type_ as *mut AstNode) };

@@ -88,7 +88,8 @@ fn run() -> i32 {
         } else if arg == "--timetrace" {
             luaur_common::FFlag::DebugLuauTimeTracing.set(true);
         } else if let Some(rest) = arg.strip_prefix("--fflags=") {
-            let c = std::ffi::CString::new(rest).unwrap_or_else(|_| std::ffi::CString::new("").unwrap());
+            let c = std::ffi::CString::new(rest)
+                .unwrap_or_else(|_| std::ffi::CString::new("").unwrap());
             set_luau_flags_c_char(c.as_ptr());
         } else if let Some(rest) = arg.strip_prefix("-j") {
             thread_count = rest.parse::<i32>().unwrap_or(0);
@@ -101,7 +102,9 @@ fn run() -> i32 {
 
     // The Rust build does not define LUAU_ENABLE_TIME_TRACE; mirror the C++ guard.
     if luaur_common::FFlag::DebugLuauTimeTracing.get() {
-        eprintln!("To run with --timetrace, Luau has to be built with LUAU_ENABLE_TIME_TRACE enabled");
+        eprintln!(
+            "To run with --timetrace, Luau has to be built with LUAU_ENABLE_TIME_TRACE enabled"
+        );
         return 1;
     }
 
@@ -115,12 +118,13 @@ fn run() -> i32 {
     let mut config_resolver = CliConfigResolver::cli_config_resolver(mode);
 
     // Frontend frontend(solverMode, &fileResolver, &configResolver, frontendOptions);
-    let mut frontend = Frontend::frontend_solver_mode_file_resolver_config_resolver_frontend_options(
-        solver_mode,
-        &mut file_resolver.base,
-        &mut config_resolver.base,
-        frontend_options,
-    );
+    let mut frontend =
+        Frontend::frontend_solver_mode_file_resolver_config_resolver_frontend_options(
+            solver_mode,
+            &mut file_resolver.base,
+            &mut config_resolver.base,
+            frontend_options,
+        );
     // Re-establish the resolver pointers and the self-referential pointers now that
     // `frontend` lives at a stable address (mirrors the project's wiring convention).
     frontend.file_resolver = &mut file_resolver.base;
@@ -132,18 +136,20 @@ fn run() -> i32 {
     // if (FFlag::DebugLuauLogSolverToJsonFile) { frontend.writeJsonLog = ...; }
     if luaur_common::FFlag::DebugLuauLogSolverToJsonFile.get() {
         let base_path = base_path.clone();
-        frontend.write_json_log = Some(alloc::rc::Rc::new(move |module_name: &ModuleName, log: String| {
-            let mut path = alloc::format!("{}.log.json", module_name);
-            if let Some(pos) = module_name.rfind('/') {
-                path = String::from(&module_name[pos + 1..]);
-            }
-            if !base_path.is_empty() {
-                path = luaur_cli_lib::functions::join_paths_file_utils_alt_b::join_paths_string_view_string_view(&base_path, &path);
-            }
-            if std::fs::write(&path, alloc::format!("{}\n", log)).is_ok() {
-                println!("Wrote JSON log to {}", path);
-            }
-        }));
+        frontend.write_json_log = Some(alloc::rc::Rc::new(
+            move |module_name: &ModuleName, log: String| {
+                let mut path = alloc::format!("{}.log.json", module_name);
+                if let Some(pos) = module_name.rfind('/') {
+                    path = String::from(&module_name[pos + 1..]);
+                }
+                if !base_path.is_empty() {
+                    path = luaur_cli_lib::functions::join_paths_file_utils_alt_b::join_paths_string_view_string_view(&base_path, &path);
+                }
+                if std::fs::write(&path, alloc::format!("{}\n", log)).is_ok() {
+                    println!("Wrote JSON log to {}", path);
+                }
+            },
+        ));
     }
 
     // registerBuiltinGlobals(frontend, frontend.globals);
@@ -206,18 +212,26 @@ fn run() -> i32 {
         Ok(modules) => checked_modules = modules,
         Err(payload) => {
             // catch (const InternalCompilerError& ice)
-            let ice: InternalCompilerError = if let Some(e) = payload.downcast_ref::<InternalCompilerError>() {
-                e.clone()
-            } else if let Some(e) = payload.downcast_ref::<luaur_analysis::records::time_limit_error::TimeLimitError>() {
-                e.base.clone()
-            } else if let Some(e) = payload.downcast_ref::<luaur_analysis::records::user_cancel_error::UserCancelError>() {
-                e.base.clone()
-            } else {
-                std::panic::resume_unwind(payload);
-            };
+            let ice: InternalCompilerError =
+                if let Some(e) = payload.downcast_ref::<InternalCompilerError>() {
+                    e.clone()
+                } else if let Some(e) = payload
+                    .downcast_ref::<luaur_analysis::records::time_limit_error::TimeLimitError>(
+                ) {
+                    e.base.clone()
+                } else if let Some(e) = payload
+                    .downcast_ref::<luaur_analysis::records::user_cancel_error::UserCancelError>(
+                ) {
+                    e.base.clone()
+                } else {
+                    std::panic::resume_unwind(payload);
+                };
 
             let location = ice.location.unwrap_or_else(Location::default);
-            let module_name = ice.module_name.clone().unwrap_or_else(|| String::from("<unknown module>"));
+            let module_name = ice
+                .module_name
+                .clone()
+                .unwrap_or_else(|| String::from("<unknown module>"));
             let human_readable_name = unsafe {
                 luaur_analysis::records::file_resolver::FileResolver::get_human_readable_module_name(
                     frontend.file_resolver,

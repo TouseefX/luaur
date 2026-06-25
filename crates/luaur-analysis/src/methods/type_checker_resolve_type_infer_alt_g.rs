@@ -26,48 +26,50 @@ impl TypeChecker {
         let location = isa_p.location;
         let scope_for_predicate = scope.clone();
 
-        let predicate: TypeIdPredicate = alloc::boxed::Box::new(move |option: TypeId| -> Option<TypeId> {
-            let tc = unsafe { &mut *self_ptr };
+        let predicate: TypeIdPredicate =
+            alloc::boxed::Box::new(move |option: TypeId| -> Option<TypeId> {
+                let tc = unsafe { &mut *self_ptr };
 
-            // This by itself is not truly enough to determine that A is stronger than B or vice versa.
-            let option_is_subtype = tc
-                .can_unify_type_infer(option, isa_ty, &scope_for_predicate, &location)
-                .is_empty();
-            let target_is_subtype = tc
-                .can_unify_type_infer(isa_ty, option, &scope_for_predicate, &location)
-                .is_empty();
+                // This by itself is not truly enough to determine that A is stronger than B or vice versa.
+                let option_is_subtype = tc
+                    .can_unify_type_infer(option, isa_ty, &scope_for_predicate, &location)
+                    .is_empty();
+                let target_is_subtype = tc
+                    .can_unify_type_infer(isa_ty, option, &scope_for_predicate, &location)
+                    .is_empty();
 
-            // If A is a superset of B, then if sense is true, we promote A to B, otherwise we keep A.
-            if !option_is_subtype && target_is_subtype {
-                return if sense { Some(isa_ty) } else { Some(option) };
-            }
-
-            // If A is a subset of B, then if sense is true we pick A, otherwise we eliminate A.
-            if option_is_subtype && !target_is_subtype {
-                return if sense { Some(option) } else { None };
-            }
-
-            // If neither has any relationship, we only return A if sense is false.
-            if !option_is_subtype && !target_is_subtype {
-                return if sense { None } else { Some(option) };
-            }
-
-            // If both are subtypes, then we're in one of the two situations described in
-            // the C++ source. We look at whether the option is undecidable or a free table.
-            if option_is_subtype && target_is_subtype {
-                let ttv = unsafe { get_type_id::<TableType>(option) };
-                let is_free_table = !ttv.is_null() && unsafe { (*ttv).state } == TableState::Free;
-                if is_undecidable(option) || is_free_table {
+                // If A is a superset of B, then if sense is true, we promote A to B, otherwise we keep A.
+                if !option_is_subtype && target_is_subtype {
                     return if sense { Some(isa_ty) } else { Some(option) };
                 }
 
-                if sense {
-                    return Some(isa_ty);
+                // If A is a subset of B, then if sense is true we pick A, otherwise we eliminate A.
+                if option_is_subtype && !target_is_subtype {
+                    return if sense { Some(option) } else { None };
                 }
-            }
 
-            None
-        });
+                // If neither has any relationship, we only return A if sense is false.
+                if !option_is_subtype && !target_is_subtype {
+                    return if sense { None } else { Some(option) };
+                }
+
+                // If both are subtypes, then we're in one of the two situations described in
+                // the C++ source. We look at whether the option is undecidable or a free table.
+                if option_is_subtype && target_is_subtype {
+                    let ttv = unsafe { get_type_id::<TableType>(option) };
+                    let is_free_table =
+                        !ttv.is_null() && unsafe { (*ttv).state } == TableState::Free;
+                    if is_undecidable(option) || is_free_table {
+                        return if sense { Some(isa_ty) } else { Some(option) };
+                    }
+
+                    if sense {
+                        return Some(isa_ty);
+                    }
+                }
+
+                None
+            });
 
         self.refine_l_value(&isa_p.lvalue, refis, scope, predicate);
     }

@@ -172,7 +172,10 @@ fn test_anyuserdata_into_lua() -> Result<()> {
     let table = lua.create_table();
     table.set("ud", &ud)?;
     assert_eq!(ud, table.get::<AnyUserData>("ud")?);
-    assert_eq!("hello", table.get::<AnyUserData>("ud")?.borrow::<Stored>()?.0);
+    assert_eq!(
+        "hello",
+        table.get::<AnyUserData>("ud")?.borrow::<Stored>()?.0
+    );
 
     Ok(())
 }
@@ -184,7 +187,10 @@ fn test_anyuserdata_from_lua() -> Result<()> {
     match lua.globals().get::<AnyUserData>("print") {
         Err(err @ Error::FromLuaConversionError { .. }) => {
             // DEVIATION: luaur-rt uses the Rust type name `AnyUserData`.
-            assert_eq!(err.to_string(), "error converting Lua function to AnyUserData");
+            assert_eq!(
+                err.to_string(),
+                "error converting Lua function to AnyUserData"
+            );
         }
         _ => panic!("expected `Error::FromLuaConversionError`"),
     }
@@ -221,7 +227,10 @@ fn test_registry_value_into_lua() -> Result<()> {
     // Check non-owned registry key
     let lua2 = Lua::new();
     let r2 = lua2.create_registry_value("abc")?;
-    assert!(matches!(f.call::<()>(&r2), Err(Error::MismatchedRegistryKey)));
+    assert!(matches!(
+        f.call::<()>(&r2),
+        Err(Error::MismatchedRegistryKey)
+    ));
 
     Ok(())
 }
@@ -336,7 +345,9 @@ fn test_conv_hashset() -> Result<()> {
     let set2: HashSet<String> = lua.globals().get("set")?;
     assert_eq!(set, set2);
 
-    let set3 = lua.load(r#"return {"a", "b", "c"}"#).eval::<HashSet<String>>()?;
+    let set3 = lua
+        .load(r#"return {"a", "b", "c"}"#)
+        .eval::<HashSet<String>>()?;
     assert_eq!(
         set3,
         HashSet::from(["a".to_string(), "b".to_string(), "c".to_string()])
@@ -369,7 +380,9 @@ fn test_conv_btreeset() -> Result<()> {
     let set2: BTreeSet<String> = lua.globals().get("set")?;
     assert_eq!(set, set2);
 
-    let set3 = lua.load(r#"return {"a", "b", "c"}"#).eval::<BTreeSet<String>>()?;
+    let set3 = lua
+        .load(r#"return {"a", "b", "c"}"#)
+        .eval::<BTreeSet<String>>()?;
     assert_eq!(
         set3,
         BTreeSet::from(["a".to_string(), "b".to_string(), "c".to_string()])
@@ -462,7 +475,10 @@ fn test_char_into_lua() -> Result<()> {
 fn test_char_from_lua() -> Result<()> {
     let lua = Lua::new();
 
-    assert_eq!(char::from_lua(lua.create_string("A").into_lua(&lua)?, &lua)?, 'A');
+    assert_eq!(
+        char::from_lua(lua.create_string("A").into_lua(&lua)?, &lua)?,
+        'A'
+    );
     assert_eq!(char::from_lua(Value::Integer(65), &lua)?, 'A');
     assert_eq!(char::from_lua(Value::Integer(128175), &lua)?, '\u{1f4af}');
     assert!(char::from_lua(Value::Integer(5456324), &lua)

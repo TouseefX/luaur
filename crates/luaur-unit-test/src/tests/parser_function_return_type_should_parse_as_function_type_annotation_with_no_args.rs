@@ -28,9 +28,9 @@ fn parser_function_return_type_should_parse_as_function_type_annotation_with_no_
     assert!(!return_annotation.is_null());
 
     let type_pack = unsafe {
-        luaur_ast::rtti::ast_node_as::<luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit>(
-            return_annotation as *mut luaur_ast::records::ast_node::AstNode,
-        )
+        luaur_ast::rtti::ast_node_as::<
+            luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit,
+        >(return_annotation as *mut luaur_ast::records::ast_node::AstNode)
     };
     assert!(!type_pack.is_null());
 
@@ -55,9 +55,9 @@ fn parser_function_return_type_should_parse_as_function_type_annotation_with_no_
     assert!(!return_types.is_null());
 
     let fun_return_pack = unsafe {
-        luaur_ast::rtti::ast_node_as::<luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit>(
-            return_types as *mut luaur_ast::records::ast_node::AstNode,
-        )
+        luaur_ast::rtti::ast_node_as::<
+            luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit,
+        >(return_types as *mut luaur_ast::records::ast_node::AstNode)
     };
     assert!(!fun_return_pack.is_null());
     assert!(unsafe { &*fun_return_pack }.type_list.tail_type.is_null());

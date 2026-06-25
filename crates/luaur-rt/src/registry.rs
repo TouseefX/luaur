@@ -112,11 +112,7 @@ impl Lua {
 
     /// Replace the value stored under an existing key. Mirrors
     /// `mlua::Lua::replace_registry_value`.
-    pub fn replace_registry_value(
-        &self,
-        key: &mut RegistryKey,
-        value: impl IntoLua,
-    ) -> Result<()> {
+    pub fn replace_registry_value(&self, key: &mut RegistryKey, value: impl IntoLua) -> Result<()> {
         if !self.owns_registry_value(key) {
             return Err(Error::MismatchedRegistryKey);
         }

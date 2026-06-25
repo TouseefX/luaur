@@ -131,13 +131,12 @@ impl BuiltinVisitor {
             // C++: bfid == LBF_SELECT_VARARG && !(args.size == 2 && args.data[1]->is<AstExprVarargs>())
             if bfid == LuauBuiltinFunction::LBF_SELECT_VARARG as i32 {
                 let is_select_arity_2 = (*node).args.len() == 2;
-                let second_arg_is_vararg = is_select_arity_2
-                    && {
-                        let arg1 = *(*node).args.data.add(1);
-                        luaur_ast::rtti::ast_node_is::<
-                            luaur_ast::records::ast_expr_varargs::AstExprVarargs,
-                        >(arg1 as *mut luaur_ast::records::ast_node::AstNode)
-                    };
+                let second_arg_is_vararg = is_select_arity_2 && {
+                    let arg1 = *(*node).args.data.add(1);
+                    luaur_ast::rtti::ast_node_is::<
+                        luaur_ast::records::ast_expr_varargs::AstExprVarargs,
+                    >(arg1 as *mut luaur_ast::records::ast_node::AstNode)
+                };
 
                 if !(is_select_arity_2 && second_arg_is_vararg) {
                     bfid = -1;

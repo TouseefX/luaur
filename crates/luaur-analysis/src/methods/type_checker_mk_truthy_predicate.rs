@@ -39,7 +39,11 @@ impl TypeChecker {
             let stv = unsafe { get_type_id::<SingletonType>(ty) };
             if !stv.is_null() {
                 if let Some(boolean) = unsafe { (*stv).variant.get_if::<BooleanSingleton>() } {
-                    return if boolean.value == sense { Some(ty) } else { None };
+                    return if boolean.value == sense {
+                        Some(ty)
+                    } else {
+                        None
+                    };
                 }
             }
 

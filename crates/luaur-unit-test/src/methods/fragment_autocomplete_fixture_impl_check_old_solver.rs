@@ -9,8 +9,10 @@ use luaur_common::FFlag;
 impl FragmentAutocompleteFixtureImpl {
     pub fn check_old_solver(&mut self, source: &String) -> CheckResult {
         let _sff = ScopedFastFlag::new(&FFlag::DebugLuauForceOldSolver, true);
-        self.base
-            .base
-            .check_mode_string_optional_frontend_options(Mode::Strict, source, Some(get_options()))
+        self.base.base.check_mode_string_optional_frontend_options(
+            Mode::Strict,
+            source,
+            Some(get_options()),
+        )
     }
 }

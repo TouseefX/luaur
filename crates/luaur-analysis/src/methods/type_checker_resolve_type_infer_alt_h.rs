@@ -54,21 +54,22 @@ impl TypeChecker {
         f: fn(TypeId) -> bool,
         maps_to: Option<TypeId>,
     ) {
-        let predicate: TypeIdPredicate = alloc::boxed::Box::new(move |ty: TypeId| -> Option<TypeId> {
-            if sense && unsafe { !get_type_id::<UnknownType>(ty).is_null() } {
-                return maps_to.or(Some(ty));
-            }
+        let predicate: TypeIdPredicate =
+            alloc::boxed::Box::new(move |ty: TypeId| -> Option<TypeId> {
+                if sense && unsafe { !get_type_id::<UnknownType>(ty).is_null() } {
+                    return maps_to.or(Some(ty));
+                }
 
-            if f(ty) == sense {
-                return Some(ty);
-            }
+                if f(ty) == sense {
+                    return Some(ty);
+                }
 
-            if is_undecidable(ty) {
-                return maps_to.or(Some(ty));
-            }
+                if is_undecidable(ty) {
+                    return maps_to.or(Some(ty));
+                }
 
-            None
-        });
+                None
+            });
 
         self.refine_l_value(lvalue, refis, scope, predicate);
     }

@@ -11,7 +11,10 @@ impl Fixture {
         module_name: &str,
         name: &String,
     ) -> TypeId {
-        let module = self.get_frontend().module_resolver.get_module(&module_name.to_string());
+        let module = self
+            .get_frontend()
+            .module_resolver
+            .get_module(&module_name.to_string());
         let binding = module
             .exported_type_bindings
             .get(name)

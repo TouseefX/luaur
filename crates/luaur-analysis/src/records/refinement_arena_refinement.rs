@@ -105,11 +105,12 @@ impl RefinementArena {
         }
 
         // return NotNull{allocator.allocate(Proposition{key, discriminantTy, false})};
-        self.allocator.allocate(Refinement::Proposition(Proposition {
-            key,
-            discriminantTy: discriminant_ty,
-            implicitFromCall: false,
-        }))
+        self.allocator
+            .allocate(Refinement::Proposition(Proposition {
+                key,
+                discriminantTy: discriminant_ty,
+                implicitFromCall: false,
+            }))
     }
 
     // Analysis/src/Refinement.cpp:60 — RefinementId RefinementArena::implicitProposition(const RefinementKey* key, TypeId discriminantTy)
@@ -125,10 +126,11 @@ impl RefinementArena {
         }
 
         // return NotNull{allocator.allocate(Proposition{key, discriminantTy, true})};
-        self.allocator.allocate(Refinement::Proposition(Proposition {
-            key,
-            discriminantTy: discriminant_ty,
-            implicitFromCall: true,
-        }))
+        self.allocator
+            .allocate(Refinement::Proposition(Proposition {
+                key,
+                discriminantTy: discriminant_ty,
+                implicitFromCall: true,
+            }))
     }
 }

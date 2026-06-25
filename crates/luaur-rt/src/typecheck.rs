@@ -144,7 +144,8 @@ impl CheckFileResolver {
         let vtable = FileResolverVtable {
             read_source: check_file_resolver_read_source_thunk,
             resolve_module: check_file_resolver_resolve_module_thunk,
-            get_human_readable_module_name: check_file_resolver_get_human_readable_module_name_thunk,
+            get_human_readable_module_name:
+                check_file_resolver_get_human_readable_module_name_thunk,
             get_environment_for_module: check_file_resolver_get_environment_for_module_thunk,
         };
         CheckFileResolver {

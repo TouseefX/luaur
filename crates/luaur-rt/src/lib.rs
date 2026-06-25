@@ -82,10 +82,10 @@ compile_error!(
      Enable one or the other, not both."
 );
 
+mod app_data;
 #[cfg(feature = "async")]
 #[path = "async.rs"]
 mod async_support;
-mod app_data;
 mod buffer;
 mod callback;
 mod chunk;
@@ -94,9 +94,6 @@ mod conversion;
 mod debug;
 mod error;
 mod exec_raw;
-/// The internal, crate-private luaur C API re-exports (mounted from `ffi.rs`).
-#[path = "ffi.rs"]
-mod sys;
 /// The public, mlua-style `ffi` surface (mounted from `ffi_public.rs`).
 #[path = "ffi_public.rs"]
 pub mod ffi;
@@ -117,6 +114,9 @@ mod serde;
 pub mod state;
 mod string;
 mod sync;
+/// The internal, crate-private luaur C API re-exports (mounted from `ffi.rs`).
+#[path = "ffi.rs"]
+mod sys;
 mod table;
 mod thread;
 mod traits;
@@ -129,12 +129,12 @@ mod vector;
 pub use buffer::Buffer;
 pub use chunk::{Chunk, ChunkMode};
 pub use compiler::Compiler;
+pub use debug::{Debug, DebugWhat};
 pub use error::{Error, ExternalError, ExternalResult, Result};
+pub use function::{Function, FunctionInfo, LuaNativeFn};
 pub use interrupt::VmState;
 pub use light_userdata::LightUserData;
 pub use luau_ext::TypeMetatable;
-pub use debug::{Debug, DebugWhat};
-pub use function::{Function, FunctionInfo, LuaNativeFn};
 pub use metamethod::MetaMethod;
 pub use multi::{MultiValue, Variadic};
 pub use options::{LuaOptions, StdLib};
@@ -156,12 +156,12 @@ pub use traits::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};
 #[cfg_attr(docsrs, doc(cfg(feature = "typecheck")))]
 pub use typecheck::{check, check_with_definitions, TypeDiagnostic};
 
+pub use app_data::{AppDataRef, AppDataRefMut};
 /// The [`AsyncThread`] driver — a coroutine being run to completion as a Rust
 /// `Future`/`Stream` (the `async` feature).
 #[cfg(feature = "async")]
 #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
 pub use async_support::AsyncThread;
-pub use app_data::{AppDataRef, AppDataRefMut};
 pub use userdata::{
     AnyUserData, UserData, UserDataFields, UserDataMethods, UserDataRef, UserDataRefMut,
 };

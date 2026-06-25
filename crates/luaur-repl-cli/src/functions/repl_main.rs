@@ -20,10 +20,10 @@ use luaur_vm::records::lua_state::lua_State;
 
 use crate::functions::assertion_handler::assertion_handler;
 use crate::functions::copts::GlobalOptions;
-use crate::functions::coverage_dump::coverage_dump;
-use crate::functions::coverage_init::coverage_init;
 use crate::functions::counters_dump::counters_dump;
 use crate::functions::counters_init::counters_init;
+use crate::functions::coverage_dump::coverage_dump;
+use crate::functions::coverage_init::coverage_init;
 use crate::functions::display_help::display_help;
 use crate::functions::profiler_dump::profiler_dump;
 use crate::functions::profiler_start::profiler_start;
@@ -170,7 +170,9 @@ pub fn repl_main(argc: i32, argv: *mut *mut c_char) -> i32 {
 
     // #if !defined(LUAU_ENABLE_TIME_TRACE): time tracing is compiled out.
     if luaur_common::FFlag::DebugLuauTimeTracing.get() {
-        eprintln!("To run with --timetrace, Luau has to be built with LUAU_ENABLE_TIME_TRACE enabled");
+        eprintln!(
+            "To run with --timetrace, Luau has to be built with LUAU_ENABLE_TIME_TRACE enabled"
+        );
         return 1;
     }
 

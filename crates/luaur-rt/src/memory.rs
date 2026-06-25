@@ -25,8 +25,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::error::{Error, Result};
-use crate::sys::*;
 use crate::state::Lua;
+use crate::sys::*;
 
 /// The per-VM allocator control block, pointed to by `global_State::ud` once a
 /// memory limit is installed.
@@ -177,7 +177,8 @@ impl Lua {
     pub fn memory_category_bytes(&self, name: &str) -> Option<usize> {
         let state = self.state();
         let key = unsafe { global_key(state) };
-        let id = MEMORY_CATEGORIES.with(|m| m.borrow().get(&key).and_then(|c| c.get(name).copied()))?;
+        let id =
+            MEMORY_CATEGORIES.with(|m| m.borrow().get(&key).and_then(|c| c.get(name).copied()))?;
         unsafe {
             let g = (*state).global;
             Some((*g).memcatbytes[id as usize])

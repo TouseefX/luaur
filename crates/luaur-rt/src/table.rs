@@ -1,9 +1,9 @@
 //! The [`Table`] handle. Mirrors `mlua::Table`.
 
 use crate::error::Result;
-use crate::sys::*;
 use crate::state::{Lua, LuaRef};
 use crate::sync::{NotSync, XRc, NOT_SYNC};
+use crate::sys::*;
 use crate::traits::{FromLua, IntoLua};
 use crate::value::Value;
 
@@ -115,9 +115,7 @@ impl Table {
             return Ok(self.raw_len());
         }
         // Evaluate `#self` protected so a raising/returning `__len` is honored.
-        let f = lua
-            .load("local t = ...; return #t")
-            .into_function()?;
+        let f = lua.load("local t = ...; return #t").into_function()?;
         let n: i64 = f.call(self.clone())?;
         Ok(n.max(0) as usize)
     }
@@ -189,10 +187,7 @@ impl Table {
 
     /// Call `f` for each value in the sequence part. Mirrors
     /// `mlua::Table::for_each_value`.
-    pub fn for_each_value<V: FromLua>(
-        &self,
-        mut f: impl FnMut(V) -> Result<()>,
-    ) -> Result<()> {
+    pub fn for_each_value<V: FromLua>(&self, mut f: impl FnMut(V) -> Result<()>) -> Result<()> {
         for v in self.sequence_values::<V>() {
             f(v?)?;
         }

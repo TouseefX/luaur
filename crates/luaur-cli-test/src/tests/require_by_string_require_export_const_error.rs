@@ -48,5 +48,7 @@ fn require_by_string_require_export_const_error() {
     let path = repl_with_path_fixture_get_luau_directory(&fixture, PathType::Relative)
         + "/tests/require/without_config/export_keyword/export_const_error";
     repl_with_path_fixture_run_protected_require(&fixture, &path);
-    fixture.assert_output_contains_all(&[String::from("Variable 'foo' is constant and may not be reassigned")]);
+    fixture.assert_output_contains_all(&[String::from(
+        "Variable 'foo' is constant and may not be reassigned",
+    )]);
 }

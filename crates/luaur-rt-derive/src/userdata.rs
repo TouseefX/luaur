@@ -111,7 +111,10 @@ pub fn userdata_type(item: TokenStream) -> TokenStream {
                 continue;
             }
 
-            let lua_name = lua_attr.name.clone().unwrap_or_else(|| field_name.to_string());
+            let lua_name = lua_attr
+                .name
+                .clone()
+                .unwrap_or_else(|| field_name.to_string());
 
             // Default (neither `get` nor `set` given) is get + set, like mlua.
             let (has_get, has_set) = if lua_attr.get || lua_attr.set {

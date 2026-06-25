@@ -7,13 +7,13 @@
 //! delegate to the inherent methods; `getEnvironmentForModule` is not overridden
 //! and uses the base default.
 
+use alloc::string::String;
 use luaur_analysis::records::file_resolver::{FileResolver, FileResolverVtable};
 use luaur_analysis::records::module_info::ModuleInfo;
 use luaur_analysis::records::source_code::SourceCode;
 use luaur_analysis::records::type_check_limits::TypeCheckLimits;
 use luaur_analysis::type_aliases::module_name_file_resolver::ModuleName;
 use luaur_ast::records::ast_expr::AstExpr;
-use alloc::string::String;
 
 #[repr(C)]
 pub struct CliFileResolver {

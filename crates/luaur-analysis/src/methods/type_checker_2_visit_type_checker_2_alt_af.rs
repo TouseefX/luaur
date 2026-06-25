@@ -23,7 +23,8 @@ impl TypeChecker2 {
                 .add_type(SingletonType::singleton_type(SingletonVariant::V1(
                     StringSingleton::new(string_data),
                 )));
-            let inferred_type = self.lookup_type(expr as *mut luaur_ast::records::ast_expr::AstExpr);
+            let inferred_type =
+                self.lookup_type(expr as *mut luaur_ast::records::ast_expr::AstExpr);
             let scope = self.find_innermost_scope((*expr).base.base.location);
 
             let mut r = (*self.subtyping).is_subtype_type_id_type_id_not_null_scope(

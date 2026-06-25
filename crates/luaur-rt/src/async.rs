@@ -62,10 +62,10 @@ use std::pin::Pin;
 use std::task::{Context, Poll, Waker};
 
 use crate::error::{Error, Result};
-use crate::sys::*;
 use crate::function::Function;
 use crate::multi::MultiValue;
 use crate::state::Lua;
+use crate::sys::*;
 use crate::table::Table;
 use crate::thread::{AsyncResume, Thread};
 use crate::traits::{FromLuaMulti, IntoLuaMulti};
@@ -272,7 +272,10 @@ unsafe fn get_future_c(state: *mut lua_State) -> c_int {
         if storage.is_null() {
             return raise(state, "luaur-rt: failed to allocate async future userdata");
         }
-        core::ptr::write(storage as *mut AsyncPollUpvalue, AsyncPollUpvalue { data: Some(fut) });
+        core::ptr::write(
+            storage as *mut AsyncPollUpvalue,
+            AsyncPollUpvalue { data: Some(fut) },
+        );
         1
     }
 }
@@ -463,9 +466,14 @@ pub(crate) fn create_async_callback(lua: &Lua, callback: AsyncCallback) -> Resul
             Some(callback_upvalue_dtor),
         );
         if storage.is_null() {
-            return Err(Error::runtime("luaur-rt: failed to allocate async callback userdata"));
+            return Err(Error::runtime(
+                "luaur-rt: failed to allocate async callback userdata",
+            ));
         }
-        core::ptr::write(storage as *mut AsyncCallbackUpvalue, AsyncCallbackUpvalue { callback });
+        core::ptr::write(
+            storage as *mut AsyncCallbackUpvalue,
+            AsyncCallbackUpvalue { callback },
+        );
         push_c_closure_with_upvalue(state, get_future_c, c"luaur-rt-get-future");
         Function::from_ref(lua.pop_ref())
     };

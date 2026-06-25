@@ -109,9 +109,7 @@ pub fn run_code(l: *mut lua_State, source: &str) -> String {
             };
             if lua_getinfo(l, 0, c"sln".as_ptr(), &mut ar) != 0 {
                 if !ar.short_src.is_null() {
-                    error.push_str(
-                        &core::ffi::CStr::from_ptr(ar.short_src).to_string_lossy(),
-                    );
+                    error.push_str(&core::ffi::CStr::from_ptr(ar.short_src).to_string_lossy());
                 }
                 error.push(':');
                 error.push_str(&ar.currentline.to_string());

@@ -18,7 +18,9 @@ impl AstTypeFunction {
         arg_names: AstArray<Option<AstArgumentName>>,
         return_types: *mut AstTypePack,
     ) -> Self {
-        luaur_common::LUAU_ASSERT!(arg_names.len() == 0 || arg_names.len() == arg_types.types.len());
+        luaur_common::LUAU_ASSERT!(
+            arg_names.len() == 0 || arg_names.len() == arg_types.types.len()
+        );
 
         Self {
             base: AstType {

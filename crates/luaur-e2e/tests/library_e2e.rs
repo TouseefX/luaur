@@ -27,19 +27,28 @@ fn eval_runs_passing_assertion() {
 #[test]
 fn eval_reports_runtime_error_message() {
     let err = eval("error('boom-from-lib')").expect_err("runtime error should be Err");
-    assert!(err.contains("boom-from-lib"), "error should mention boom: {err}");
+    assert!(
+        err.contains("boom-from-lib"),
+        "error should mention boom: {err}"
+    );
 }
 
 #[test]
 fn eval_reports_assertion_failure() {
     let err = eval("assert(false, 'nope')").expect_err("failed assert should be Err");
-    assert!(err.contains("nope"), "error should carry the assert message: {err}");
+    assert!(
+        err.contains("nope"),
+        "error should carry the assert message: {err}"
+    );
 }
 
 #[test]
 fn eval_reports_nil_index_error() {
     let err = eval("local t = nil; return t.x").expect_err("indexing nil should be Err");
-    assert!(!err.is_empty(), "nil-index error should be non-empty: {err}");
+    assert!(
+        !err.is_empty(),
+        "nil-index error should be non-empty: {err}"
+    );
 }
 
 #[test]
@@ -56,12 +65,12 @@ fn multiple_sequential_evals_each_fresh_state() {
 fn compile_then_load_and_run_via_vm() {
     // Mirror what `eval` does internally, but drive the raw `luaur::vm` API to
     // confirm compiled bytecode loads and runs on a freshly-built state.
+    use luaur::vm::functions::lua_close::lua_close;
     use luaur::vm::functions::lua_l_newstate::lua_l_newstate;
     use luaur::vm::functions::lua_l_openlibs::lua_l_openlibs;
     use luaur::vm::functions::lua_newthread::lua_newthread;
     use luaur::vm::functions::lua_resume::lua_resume;
     use luaur::vm::functions::luau_load::luau_load;
-    use luaur::vm::functions::lua_close::lua_close;
 
     let bytecode = compile("assert(3 + 4 == 7)").expect("compile ok");
     luaur::common::set_all_flags(true);
@@ -95,11 +104,11 @@ fn eval_does_not_panic_on_diverse_errors() {
     // no Rust panic escaping (the e2e crate would abort the test process).
     let cases = [
         "error()",
-        "error({code = 1})",          // non-string error object
-        "(nil)()",                    // call a nil value
-        "return 1 + {}",              // arithmetic on a table
-        "local t = {}; return #t.x",  // length of nil field
-        "string.rep('x', -1)",        // odd-but-defined stdlib call
+        "error({code = 1})",         // non-string error object
+        "(nil)()",                   // call a nil value
+        "return 1 + {}",             // arithmetic on a table
+        "local t = {}; return #t.x", // length of nil field
+        "string.rep('x', -1)",       // odd-but-defined stdlib call
     ];
     for src in cases {
         let result = eval(src);

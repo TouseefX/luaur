@@ -62,10 +62,8 @@ fn require_by_string_check_cache_after_require_init_luau() {
 
     repl_with_path_fixture_run_protected_require(&fixture, &relative_path);
 
-    fixture.assert_output_contains_all(&[
-        String::from("true"),
-        String::from("result from init.luau"),
-    ]);
+    fixture
+        .assert_output_contains_all(&[String::from("true"), String::from("result from init.luau")]);
 
     unsafe {
         luaL_findtable(l, LUA_REGISTRYINDEX, c"_MODULES".as_ptr(), 1);

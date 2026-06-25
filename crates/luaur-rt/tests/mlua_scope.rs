@@ -92,7 +92,11 @@ fn test_scope_outer_lua_access() -> Result<()> {
     // DEVIATION: luaur-rt's `create_table` is infallible (no `?`); the
     // `Result`-returning `create_table_result` exists for signature parity.
     let table = lua.create_table();
-    lua.scope(|scope| scope.create_function(|_, ()| table.set("a", "b"))?.call::<()>(()))?;
+    lua.scope(|scope| {
+        scope
+            .create_function(|_, ()| table.set("a", "b"))?
+            .call::<()>(())
+    })?;
     assert_eq!(table.get::<String>("a")?, "b");
 
     Ok(())

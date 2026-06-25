@@ -28,8 +28,8 @@
 use std::cell::Cell;
 
 use crate::error::{Error, Result};
-use crate::sys::*;
 use crate::sync::{MaybeSend, MaybeSync, NotSync, XRc, XWeak, NOT_SYNC};
+use crate::sys::*;
 use crate::value::Value;
 
 // Re-export the GC-control types here so they live at `luaur_rt::state::{..}`,
@@ -175,7 +175,10 @@ impl Lua {
     /// non-empty `libs` opens the full standard library and [`StdLib::NONE`]
     /// opens nothing (see [`StdLib`]). `options` is recorded on the VM (currently
     /// only `catch_rust_panics` is observable).
-    pub fn new_with(libs: crate::options::StdLib, options: crate::options::LuaOptions) -> Result<Lua> {
+    pub fn new_with(
+        libs: crate::options::StdLib,
+        options: crate::options::LuaOptions,
+    ) -> Result<Lua> {
         luaur_common::set_all_flags(true);
         unsafe {
             let state = lua_l_newstate();

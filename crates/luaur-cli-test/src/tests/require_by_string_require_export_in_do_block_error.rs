@@ -47,5 +47,7 @@ fn require_by_string_require_export_in_do_block_error() {
     let path = repl_with_path_fixture_get_luau_directory(&fixture, PathType::Relative)
         + "/tests/require/without_config/export_keyword/export_in_do_block_error";
     repl_with_path_fixture_run_protected_require(&fixture, &path);
-    fixture.assert_output_contains_all(&[String::from("'export' may only be applied to top-level statements")]);
+    fixture.assert_output_contains_all(&[String::from(
+        "'export' may only be applied to top-level statements",
+    )]);
 }

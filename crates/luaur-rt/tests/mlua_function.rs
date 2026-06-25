@@ -105,10 +105,10 @@ fn test_create_function_basic() -> Result<()> {
 
     let f = lua.create_function(|_, (s, n): (String, usize)| Ok(s.repeat(n)))?;
     lua.globals().set("f", f)?;
-    lua.load(r#"assert(f("hello", 2) == "hellohello")"#).exec()?;
+    lua.load(r#"assert(f("hello", 2) == "hellohello")"#)
+        .exec()?;
 
-    let ferr =
-        lua.create_function(|_, ()| -> Result<()> { Err(Error::runtime("some error")) })?;
+    let ferr = lua.create_function(|_, ()| -> Result<()> { Err(Error::runtime("some error")) })?;
     lua.globals().set("ferr", ferr)?;
     lua.load(
         r#"
@@ -176,7 +176,10 @@ fn test_function_environment() -> Result<()> {
         .load("return hello")
         .set_environment(lua.create_table_from([("hello", "chunk")])?)
         .into_function()?;
-    assert_eq!(chunk.environment().unwrap().get::<String>("hello")?, "chunk");
+    assert_eq!(
+        chunk.environment().unwrap().get::<String>("hello")?,
+        "chunk"
+    );
 
     Ok(())
 }

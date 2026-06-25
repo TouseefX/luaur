@@ -127,7 +127,8 @@ impl TypeSimplifier {
                         }
                     }
                     if let Some(write_ty) = property.write_ty {
-                        if !unsafe { get_type_id::<NeverType>(follow_type_id(write_ty)) }.is_null() {
+                        if !unsafe { get_type_id::<NeverType>(follow_type_id(write_ty)) }.is_null()
+                        {
                             return Some(unsafe { (*self.builtin_types).neverType });
                         }
                     }
@@ -135,7 +136,8 @@ impl TypeSimplifier {
                     // If the property we get back is pointer identical to the
                     // original property, return the underlying property as an
                     // optimization.
-                    if ty_prop.read_ty == property.read_ty && ty_prop.write_ty == property.write_ty {
+                    if ty_prop.read_ty == property.read_ty && ty_prop.write_ty == property.write_ty
+                    {
                         return Some(target);
                     }
 

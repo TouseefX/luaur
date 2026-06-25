@@ -43,7 +43,8 @@ local a : T@1
             LUAU_ASSERT!(!result.fresh_scope.is_null());
             assert!(result.ac_results.entry_map.contains_key("Table"));
             assert!(result.ac_results.entry_map["Table"].r#type.is_some());
-            let ty = unsafe { follow_type_id(result.ac_results.entry_map["Table"].r#type.unwrap()) };
+            let ty =
+                unsafe { follow_type_id(result.ac_results.entry_map["Table"].r#type.unwrap()) };
             let tv = unsafe { get_type_id::<TableType>(ty) };
             assert!(!tv.is_null());
             assert!(unsafe { (*tv).props.contains_key("a") });

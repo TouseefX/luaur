@@ -59,7 +59,8 @@ impl Compiler {
                     if !call.is_null() {
                         self.compile_expr_call(call, reg, tail as u8, true, false);
                     } else {
-                        let va = luaur_ast::rtti::ast_node_as::<AstExprVarargs>(arg as *mut AstNode);
+                        let va =
+                            luaur_ast::rtti::ast_node_as::<AstExprVarargs>(arg as *mut AstNode);
                         if !va.is_null() {
                             self.compile_expr_varargs(va, reg, tail as u8, false);
                         } else {

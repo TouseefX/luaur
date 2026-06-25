@@ -43,7 +43,12 @@ fn require_by_string_require_with_ambiguity_in_alias_discovery() {
             path_str.as_ptr() as *mut c_char,
         ];
 
-        assert_eq!(repl_main(2, argv.as_mut_ptr()), 0, "replMain failed for {}", path);
+        assert_eq!(
+            repl_main(2, argv.as_mut_ptr()),
+            0,
+            "replMain failed for {}",
+            path
+        );
 
         // Keep the CStrings alive for the duration of the replMain call.
         let _ = &mut path_str;

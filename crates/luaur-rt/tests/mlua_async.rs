@@ -44,7 +44,8 @@ async fn sleep_ms(ms: u64) {
 async fn test_async_function() -> Result<()> {
     let lua = Lua::new();
 
-    let f = lua.create_async_function(|_lua, (a, b, c): (i64, i64, i64)| async move { Ok((a + b) * c) })?;
+    let f = lua
+        .create_async_function(|_lua, (a, b, c): (i64, i64, i64)| async move { Ok((a + b) * c) })?;
     lua.globals().set("f", f)?;
 
     let res: i64 = lua.load("f(1, 2, 3)").eval_async().await?;
@@ -66,7 +67,8 @@ async fn test_async_function_wrap() -> Result<()> {
     assert_eq!(res, "hello");
 
     // Return error
-    let ferr = Function::wrap_async(|| async move { Err::<(), _>(Error::runtime("some async error")) });
+    let ferr =
+        Function::wrap_async(|| async move { Err::<(), _>(Error::runtime("some async error")) });
     lua.globals().set("ferr", ferr)?;
     lua.load(
         r#"
@@ -464,7 +466,8 @@ async fn test_async_current_thread() -> Result<()> {
     let lua = Lua::new();
 
     let get_inner_thread = lua.create_async_function(move |lua, ()| async move {
-        let f = lua.create_async_function(move |lua, ()| async move { Ok(lua.current_thread()) })?;
+        let f =
+            lua.create_async_function(move |lua, ()| async move { Ok(lua.current_thread()) })?;
         f.call_async::<Thread>(()).await
     })?;
     let inner_thread = get_inner_thread.call_async::<Thread>(()).await?;

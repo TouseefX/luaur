@@ -27,7 +27,9 @@ impl FragmentAutocompleteFixtureImpl {
         let clean_updated = self.clean_markers(updated);
         let cursor_pos = self.get_position(marker);
 
-        self.base.get_frontend().set_luau_solver_mode(SolverMode::New);
+        self.base
+            .get_frontend()
+            .set_luau_solver_mode(SolverMode::New);
         self.base
             .base
             .check_string_optional_frontend_options(document, Some(get_options()));

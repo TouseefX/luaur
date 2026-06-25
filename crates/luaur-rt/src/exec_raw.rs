@@ -12,10 +12,10 @@
 use std::cell::Cell;
 
 use crate::error::Result;
-use crate::sys::*;
 use crate::function::Function;
 use crate::multi::MultiValue;
 use crate::state::Lua;
+use crate::sys::*;
 use crate::traits::{FromLuaMulti, IntoLuaMulti};
 
 /// The boxed, type-erased raw closure stored in the `exec_raw` trampoline's
@@ -87,9 +87,7 @@ impl Lua {
             // transmute only widens the closure's (non-`'static`) lifetime to
             // `'static`; that `'static` box never escapes this function.
             let f: Box<dyn FnOnce(*mut lua_State) + '_> = Box::new(f);
-            unsafe {
-                core::mem::transmute::<Box<dyn FnOnce(*mut lua_State) + '_>, RawFn>(f)
-            }
+            unsafe { core::mem::transmute::<Box<dyn FnOnce(*mut lua_State) + '_>, RawFn>(f) }
         };
         unsafe {
             let nargs = args.len() as c_int;

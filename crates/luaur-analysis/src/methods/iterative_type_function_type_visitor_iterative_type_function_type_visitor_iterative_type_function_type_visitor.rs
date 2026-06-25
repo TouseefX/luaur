@@ -17,5 +17,7 @@
 // C++ `IterativeTypeFunctionTypeVisitor(const IterativeTypeFunctionTypeVisitor&) = delete;`
 // deleted copy-ctor; the real ctors are the string / string,bool / string,SeenSet,bool variants.
 pub fn iterative_type_function_type_visitor_iterative_type_function_type_visitor() {
-    unreachable!("C++ IterativeTypeFunctionTypeVisitor copy-ctor is `= delete` — non-copyable, no call site");
+    unreachable!(
+        "C++ IterativeTypeFunctionTypeVisitor copy-ctor is `= delete` — non-copyable, no call site"
+    );
 }

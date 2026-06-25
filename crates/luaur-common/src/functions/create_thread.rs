@@ -12,7 +12,10 @@ use crate::records::global_context::{GlobalContext, ThreadPtr};
 use crate::records::thread_context::ThreadContext;
 
 pub fn create_thread(context: &GlobalContext, thread_context: *mut ThreadContext) -> u32 {
-    let mut state = context.state.lock().expect("TimeTrace GlobalContext mutex poisoned");
+    let mut state = context
+        .state
+        .lock()
+        .expect("TimeTrace GlobalContext mutex poisoned");
 
     state.threads.push(ThreadPtr(thread_context));
 

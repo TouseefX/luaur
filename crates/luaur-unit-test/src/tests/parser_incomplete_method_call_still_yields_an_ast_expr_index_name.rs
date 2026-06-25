@@ -10,7 +10,8 @@ fn parser_incomplete_method_call_still_yields_an_ast_expr_index_name() {
     let mut fixture = Fixture::fixture_bool(false);
     let source = alloc::string::String::from("game:\n");
     let options = ParseOptions::parse_options();
-    let result: luaur_ast::records::parse_result::ParseResult = fixture.try_parse(&source, &options);
+    let result: luaur_ast::records::parse_result::ParseResult =
+        fixture.try_parse(&source, &options);
 
     assert_eq!(1, unsafe { (*result.root).body.size });
 

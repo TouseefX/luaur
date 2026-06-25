@@ -19,12 +19,13 @@ impl RefinementArena {
     // RefinementId RefinementArena::proposition(DefId def, bool sense)
     pub fn proposition(&mut self, def: DefId, sense: bool) -> RefinementId {
         // return NotNull{allocator.allocate(Proposition{def, std::nullopt, /*isTypeof*/ false, sense})};
-        self.allocator.allocate(Refinement::Proposition(Proposition {
-            ptr: def,
-            r#type: None,
-            is_typeof: false,
-            sense,
-        }))
+        self.allocator
+            .allocate(Refinement::Proposition(Proposition {
+                ptr: def,
+                r#type: None,
+                is_typeof: false,
+                sense,
+            }))
     }
 
     // RefinementId RefinementArena::typeProposition(DefId def, std::optional<std::string> type, bool isTypeof, bool sense)
@@ -36,12 +37,13 @@ impl RefinementArena {
         sense: bool,
     ) -> RefinementId {
         // return NotNull{allocator.allocate(Proposition{def, std::move(type), isTypeof, sense})};
-        self.allocator.allocate(Refinement::Proposition(Proposition {
-            ptr: def,
-            r#type,
-            is_typeof,
-            sense,
-        }))
+        self.allocator
+            .allocate(Refinement::Proposition(Proposition {
+                ptr: def,
+                r#type,
+                is_typeof,
+                sense,
+            }))
     }
 
     // RefinementId RefinementArena::conjunction(RefinementId lhs, RefinementId rhs)

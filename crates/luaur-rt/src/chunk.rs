@@ -5,9 +5,9 @@
 //! `luau_load` -> a Lua function on the stack -> `lua_pcall`.
 
 use crate::error::{Error, Result};
-use crate::sys::*;
 use crate::function::Function;
 use crate::state::Lua;
+use crate::sys::*;
 use crate::traits::FromLuaMulti;
 
 use luaur_ast::records::parse_options::ParseOptions;

@@ -10,13 +10,13 @@
 //! C++ member: `std::unordered_map<ModuleName, std::string> source;` — ported as
 //! a typed `HashMap<ModuleName, String>` (no untyped JSON).
 
+use alloc::string::String;
 use luaur_analysis::records::file_resolver::{FileResolver, FileResolverVtable};
 use luaur_analysis::records::module_info::ModuleInfo;
 use luaur_analysis::records::source_code::SourceCode;
 use luaur_analysis::records::type_check_limits::TypeCheckLimits;
 use luaur_analysis::type_aliases::module_name_file_resolver::ModuleName;
 use luaur_ast::records::ast_expr::AstExpr;
-use alloc::string::String;
 use std::collections::HashMap;
 
 #[repr(C)]

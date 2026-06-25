@@ -21,8 +21,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::error::{Error, Result};
-use crate::sys::*;
 use crate::state::Lua;
+use crate::sys::*;
 
 /// The action an interrupt callback asks the VM to take. Mirrors
 /// `mlua::VmState`.

@@ -79,10 +79,7 @@ impl TypeChecker {
             // Do not infer 'nil' as function return type
             // if (!tail && head.size() == 1 && isNil(head[0])) retPack = freshTypePack(funScope);
             // else retPack = addTypePack(head, tail);
-            if tail.is_none()
-                && head.len() == 1
-                && crate::functions::is_nil::is_nil(head[0])
-            {
+            if tail.is_none() && head.len() == 1 && crate::functions::is_nil::is_nil(head[0]) {
                 self.fresh_type_pack_scope_ptr(fun_scope.clone())
             } else {
                 self.add_type_pack_vector_type_id_optional_type_pack_id(&head, tail)
@@ -121,11 +118,10 @@ impl TypeChecker {
                             // head.erase(head.begin(), head.begin() + expr.args.size);
                             head.drain(0..expr.args.size);
                             // funScope->varargPack = addTypePack(head, tail);
-                            vararg_pack = Some(
-                                self.add_type_pack_vector_type_id_optional_type_pack_id(
+                            vararg_pack =
+                                Some(self.add_type_pack_vector_type_id_optional_type_pack_id(
                                     &head, tail,
-                                ),
-                            );
+                                ));
                         } else if let Some(tail) = tail {
                             // if (get<VariadicTypePack>(follow(*tail)))
                             //     funScope->varargPack = addTypePack({}, tail);
@@ -139,21 +135,19 @@ impl TypeChecker {
                             }
                             .is_null()
                             {
-                                vararg_pack = Some(
-                                    self.add_type_pack_vector_type_id_optional_type_pack_id(
+                                vararg_pack =
+                                    Some(self.add_type_pack_vector_type_id_optional_type_pack_id(
                                         &alloc::vec::Vec::new(),
                                         Some(tail),
-                                    ),
-                                );
+                                    ));
                             }
                         } else {
                             // funScope->varargPack = addTypePack({});
-                            vararg_pack = Some(
-                                self.add_type_pack_vector_type_id_optional_type_pack_id(
+                            vararg_pack =
+                                Some(self.add_type_pack_vector_type_id_optional_type_pack_id(
                                     &alloc::vec::Vec::new(),
                                     None,
-                                ),
-                            );
+                                ));
                         }
                     }
                 }
@@ -259,29 +253,27 @@ impl TypeChecker {
         // expected acquires the expected type's — possibly vestigial — generics,
         // e.g. `function(x: string) ... end` checked against `<a>(a) -> a`
         // becomes `<a>(string) -> string`).
-        function_type.generics = if expected_function_type.is_some()
-            && generic_defs.generic_types.is_empty()
-        {
-            expected_function_type.unwrap().generics.clone()
-        } else {
-            generic_defs
-                .generic_types
-                .iter()
-                .map(|def| def.ty)
-                .collect()
-        };
+        function_type.generics =
+            if expected_function_type.is_some() && generic_defs.generic_types.is_empty() {
+                expected_function_type.unwrap().generics.clone()
+            } else {
+                generic_defs
+                    .generic_types
+                    .iter()
+                    .map(|def| def.ty)
+                    .collect()
+            };
         // C++ TypeInfer.cpp:4060-4071: likewise for generic type packs.
-        function_type.generic_packs = if expected_function_type.is_some()
-            && generic_defs.generic_packs.is_empty()
-        {
-            expected_function_type.unwrap().generic_packs.clone()
-        } else {
-            generic_defs
-                .generic_packs
-                .iter()
-                .map(|def| def.tp)
-                .collect()
-        };
+        function_type.generic_packs =
+            if expected_function_type.is_some() && generic_defs.generic_packs.is_empty() {
+                expected_function_type.unwrap().generic_packs.clone()
+            } else {
+                generic_defs
+                    .generic_packs
+                    .iter()
+                    .map(|def| def.tp)
+                    .collect()
+            };
         function_type
             .arg_names
             .reserve(expr.args.len() + usize::from(!expr.self_.is_null()));

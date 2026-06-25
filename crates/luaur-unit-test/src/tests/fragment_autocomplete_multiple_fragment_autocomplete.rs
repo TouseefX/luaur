@@ -65,7 +65,11 @@ return module"#,
 
         // checkAndExamine(source, "module", "{|  |}")
         fixture.base.check_with_options(&source);
-        let id = fixture.base.base.base.get_type(&String::from("module"), true);
+        let id = fixture
+            .base
+            .base
+            .base
+            .get_type(&String::from("module"), true);
         LUAU_ASSERT!(id.is_some());
         assert_eq!(
             to_string_type_id_to_string_options_mut(id.unwrap(), opt.clone()),
@@ -74,22 +78,28 @@ return module"#,
 
         // fragmentACAndCheck(updated1, Position{1, 17}, "module", "{|  |}", "{| a: (%error-id%: unknown) -> () |}")
         {
-            let frag =
-                fixture
-                    .base
-                    .autocomplete_fragment(&updated1, Position { line: 1, column: 17 }, None);
-            LUAU_ASSERT!(frag.result.is_some());
-            let frag_id = get_type_from_module(
-                &frag.result.as_ref().unwrap().incremental_module,
-                "module",
+            let frag = fixture.base.autocomplete_fragment(
+                &updated1,
+                Position {
+                    line: 1,
+                    column: 17,
+                },
+                None,
             );
+            LUAU_ASSERT!(frag.result.is_some());
+            let frag_id =
+                get_type_from_module(&frag.result.as_ref().unwrap().incremental_module, "module");
             LUAU_ASSERT!(frag_id.is_some());
             assert_eq!(
                 to_string_type_id_to_string_options_mut(frag_id.unwrap(), opt.clone()),
                 String::from("{| a: (%error-id%: unknown) -> () |}")
             );
 
-            let src_id = fixture.base.base.base.get_type(&String::from("module"), true);
+            let src_id = fixture
+                .base
+                .base
+                .base
+                .get_type(&String::from("module"), true);
             LUAU_ASSERT!(src_id.is_some());
             assert_eq!(
                 to_string_type_id_to_string_options_mut(src_id.unwrap(), opt.clone()),
@@ -99,22 +109,28 @@ return module"#,
 
         // fragmentACAndCheck(updated2, Position{1, 18}, "module", "{|  |}", "{| ab: (%error-id%: unknown) -> () |}")
         {
-            let frag =
-                fixture
-                    .base
-                    .autocomplete_fragment(&updated2, Position { line: 1, column: 18 }, None);
-            LUAU_ASSERT!(frag.result.is_some());
-            let frag_id = get_type_from_module(
-                &frag.result.as_ref().unwrap().incremental_module,
-                "module",
+            let frag = fixture.base.autocomplete_fragment(
+                &updated2,
+                Position {
+                    line: 1,
+                    column: 18,
+                },
+                None,
             );
+            LUAU_ASSERT!(frag.result.is_some());
+            let frag_id =
+                get_type_from_module(&frag.result.as_ref().unwrap().incremental_module, "module");
             LUAU_ASSERT!(frag_id.is_some());
             assert_eq!(
                 to_string_type_id_to_string_options_mut(frag_id.unwrap(), opt.clone()),
                 String::from("{| ab: (%error-id%: unknown) -> () |}")
             );
 
-            let src_id = fixture.base.base.base.get_type(&String::from("module"), true);
+            let src_id = fixture
+                .base
+                .base
+                .base
+                .get_type(&String::from("module"), true);
             LUAU_ASSERT!(src_id.is_some());
             assert_eq!(
                 to_string_type_id_to_string_options_mut(src_id.unwrap(), opt.clone()),
@@ -132,7 +148,11 @@ return module"#,
 
         // checkAndExamine(source, "module", "{  }")
         fixture.base.check_with_options(&source);
-        let id = fixture.base.base.base.get_type(&String::from("module"), true);
+        let id = fixture
+            .base
+            .base
+            .base
+            .get_type(&String::from("module"), true);
         LUAU_ASSERT!(id.is_some());
         assert_eq!(
             to_string_type_id_to_string_options_mut(id.unwrap(), opt.clone()),

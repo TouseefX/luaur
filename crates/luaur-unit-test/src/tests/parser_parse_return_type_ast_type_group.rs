@@ -24,9 +24,9 @@ fn parser_parse_return_type_ast_type_group() {
     assert!(!func_type.is_null());
 
     let return_type_pack = unsafe {
-        luaur_ast::rtti::ast_node_as::<luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit>(
-            (*func_type).return_types as *mut luaur_ast::records::ast_node::AstNode,
-        )
+        luaur_ast::rtti::ast_node_as::<
+            luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit,
+        >((*func_type).return_types as *mut luaur_ast::records::ast_node::AstNode)
     };
     assert!(!return_type_pack.is_null());
     assert_eq!(1, unsafe { (*return_type_pack).type_list.types.size });

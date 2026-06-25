@@ -2,17 +2,14 @@ use crate::enums::polarity::Polarity;
 use crate::enums::table_state::TableState;
 use crate::enums::value_context::ValueContext;
 use crate::functions::extend_type_pack::extend_type_pack;
+use crate::functions::fast_is_subtype::fast_is_subtype;
 use crate::functions::follow_type::follow_type_id;
 use crate::functions::fresh_type::fresh_type;
 use crate::functions::get_mutable_type::getMutable;
 use crate::functions::get_table_type::get_table_type;
 use crate::functions::get_type_alt_j::get_type_id;
-use crate::functions::fast_is_subtype::fast_is_subtype;
 use crate::functions::lookup_extern_type_prop::lookup_extern_type_prop;
 use crate::functions::track_interior_free_type::track_interior_free_type;
-use crate::records::singleton_type::SingletonType;
-use crate::records::string_singleton::StringSingleton;
-use crate::type_aliases::singleton_variant::SingletonVariant;
 use crate::records::any_type::AnyType;
 use crate::records::constraint::Constraint;
 use crate::records::constraint_solver::ConstraintSolver;
@@ -24,10 +21,13 @@ use crate::records::metatable_type::MetatableType;
 use crate::records::never_type::NeverType;
 use crate::records::primitive_type::PrimitiveType;
 use crate::records::property_type::Property;
+use crate::records::singleton_type::SingletonType;
+use crate::records::string_singleton::StringSingleton;
 use crate::records::table_prop_lookup_result::TablePropLookupResult;
 use crate::records::table_type::TableType;
 use crate::records::type_level::TypeLevel;
 use crate::records::union_type::UnionType;
+use crate::type_aliases::singleton_variant::SingletonVariant;
 use crate::type_aliases::type_id::TypeId;
 use alloc::vec::Vec;
 use luaur_common::macros::luau_assert::LUAU_ASSERT;
@@ -112,9 +112,9 @@ impl ConstraintSolver {
                 // key (e.g. "Val1" against a `"Val1"|"Val2"|"Val3"` key), not just
                 // when the key is a plain string.
                 let faux_literal = unsafe {
-                    (*self.arena).add_type(SingletonType::singleton_type(
-                        SingletonVariant::V1(StringSingleton::new(prop_name.to_string())),
-                    ))
+                    (*self.arena).add_type(SingletonType::singleton_type(SingletonVariant::V1(
+                        StringSingleton::new(prop_name.to_string()),
+                    )))
                 };
                 if fast_is_subtype(faux_literal, indexer.index_type) {
                     return TablePropLookupResult {

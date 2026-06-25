@@ -1,7 +1,6 @@
 extern crate alloc;
 
-const EMBEDDED_BUILTINS_CPP: &str =
-    include_str!("embedded_builtin_definitions.cpp");
+const EMBEDDED_BUILTINS_CPP: &str = include_str!("embedded_builtin_definitions.cpp");
 
 pub fn embedded_builtin_raw_const(name: &str) -> &'static str {
     let needle = alloc::format!("{name} = R\"");

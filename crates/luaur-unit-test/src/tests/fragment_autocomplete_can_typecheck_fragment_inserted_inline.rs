@@ -39,8 +39,8 @@ local y = 5
         None,
     );
 
-    let scope_ptr =
-        alloc::sync::Arc::as_ptr(&fragment.fresh_scope) as *mut luaur_analysis::records::scope::Scope;
+    let scope_ptr = alloc::sync::Arc::as_ptr(&fragment.fresh_scope)
+        as *mut luaur_analysis::records::scope::Scope;
     let correct = linear_search_for_binding(scope_ptr, "z");
     LUAU_ASSERT!(correct.is_some());
     assert_eq!("number", to_string_type_id(correct.unwrap()));

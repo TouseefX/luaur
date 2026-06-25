@@ -28,9 +28,9 @@ use std::marker::PhantomData;
 
 use crate::callback::{create_callback_function, BoxedCallback};
 use crate::error::{Error, Result};
-use crate::sys::*;
 use crate::state::{Lua, LuaRef};
 use crate::sync::{MaybeSend, MaybeSync, NotSync, XRc, NOT_SYNC};
+use crate::sys::*;
 use crate::traits::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};
 use crate::value::Value;
 
@@ -478,7 +478,10 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
             let this = args.pop_front().unwrap_or(Value::Nil);
             let cell = recover_cell::<T>(lua, &this)?;
             let a = A::from_lua_multi(args, lua)?;
-            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let borrowed = cell
+                .cell
+                .try_borrow()
+                .map_err(|_| Error::UserDataBorrowError)?;
             let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
             let r = method(lua, data, a)?;
             r.into_lua_multi(lua)
@@ -543,7 +546,10 @@ impl<T: 'static> UserDataMethods<T> for Collector<T> {
             let this = args.pop_front().unwrap_or(Value::Nil);
             let cell = recover_cell::<T>(lua, &this)?;
             let a = A::from_lua_multi(args, lua)?;
-            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let borrowed = cell
+                .cell
+                .try_borrow()
+                .map_err(|_| Error::UserDataBorrowError)?;
             let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
             let r = method(lua, data, a)?;
             r.into_lua_multi(lua)
@@ -605,7 +611,10 @@ impl<T: 'static> UserDataFields<T> for Collector<T> {
         let callback: BoxedCallback = Box::new(move |lua, mut args| {
             let this = args.pop_front().unwrap_or(Value::Nil);
             let cell = recover_cell::<T>(lua, &this)?;
-            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let borrowed = cell
+                .cell
+                .try_borrow()
+                .map_err(|_| Error::UserDataBorrowError)?;
             let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
             let r = method(lua, data)?;
             r.into_lua_multi(lua)
@@ -807,7 +816,10 @@ impl<T> UserDataMethods<T> for ScopedCollector<T> {
             let this = args.pop_front().unwrap_or(Value::Nil);
             let cell = unsafe { recover_scoped_cell::<T>(lua, &this, marker)? };
             let a = A::from_lua_multi(args, lua)?;
-            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let borrowed = cell
+                .cell
+                .try_borrow()
+                .map_err(|_| Error::UserDataBorrowError)?;
             let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
             let r = method(lua, data, a)?;
             r.into_lua_multi(lua)
@@ -874,7 +886,10 @@ impl<T> UserDataMethods<T> for ScopedCollector<T> {
             let this = args.pop_front().unwrap_or(Value::Nil);
             let cell = unsafe { recover_scoped_cell::<T>(lua, &this, marker)? };
             let a = A::from_lua_multi(args, lua)?;
-            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let borrowed = cell
+                .cell
+                .try_borrow()
+                .map_err(|_| Error::UserDataBorrowError)?;
             let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
             let r = method(lua, data, a)?;
             r.into_lua_multi(lua)
@@ -938,7 +953,10 @@ impl<T> UserDataFields<T> for ScopedCollector<T> {
         let callback: BoxedCallback = Box::new(move |lua, mut args| {
             let this = args.pop_front().unwrap_or(Value::Nil);
             let cell = unsafe { recover_scoped_cell::<T>(lua, &this, marker)? };
-            let borrowed = cell.cell.try_borrow().map_err(|_| Error::UserDataBorrowError)?;
+            let borrowed = cell
+                .cell
+                .try_borrow()
+                .map_err(|_| Error::UserDataBorrowError)?;
             let data = borrowed.as_ref().ok_or(Error::UserDataDestructed)?;
             let r = method(lua, data)?;
             r.into_lua_multi(lua)
@@ -1100,7 +1118,9 @@ pub(crate) fn create_scoped_userdata<T: UserData>(
             Some(scoped_userdata_dtor::<T>),
         );
         if storage.is_null() {
-            return Err(Error::runtime("luaur-rt: failed to allocate scoped userdata"));
+            return Err(Error::runtime(
+                "luaur-rt: failed to allocate scoped userdata",
+            ));
         }
         core::ptr::write(
             storage as *mut ScopedCell<T>,

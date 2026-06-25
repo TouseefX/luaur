@@ -11,7 +11,8 @@ pub fn has_break(node: *mut AstStat) -> bool {
     }
 
     unsafe {
-        if !ast_node_as::<AstStatBlock>(node as *mut luaur_ast::records::ast_node::AstNode).is_null()
+        if !ast_node_as::<AstStatBlock>(node as *mut luaur_ast::records::ast_node::AstNode)
+            .is_null()
         {
             let stat =
                 ast_node_as::<AstStatBlock>(node as *mut luaur_ast::records::ast_node::AstNode);

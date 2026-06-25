@@ -39,7 +39,9 @@ impl DataFlowGraph {
     /// signature; the real ctor is `DataFlowGraph::data_flow_graph(def_arena, key_arena)`
     /// (`methods/data_flow_graph_data_flow_graph_data_flow_graph_alt_c.rs`).
     pub fn data_flow_graph_data_flow_graph_not_null_def_arena_not_null_refinement_key_arena(&self) {
-        unreachable!("superseded by DataFlowGraph::data_flow_graph(def_arena, key_arena) — no call site")
+        unreachable!(
+            "superseded by DataFlowGraph::data_flow_graph(def_arena, key_arena) — no call site"
+        )
     }
     /// `DefId DataFlowGraph::getDef(const AstExpr* expr) const`.
     /// Reference: `DataFlowGraph.cpp` — `getDefOptional` plus an assert.
@@ -78,6 +80,8 @@ impl DataFlowGraph {
         _def_arena: *mut DefArena,
         _key_arena: *mut RefinementKeyArena,
     ) {
-        unreachable!("superseded by DataFlowGraph::data_flow_graph(def_arena, key_arena) — no call site")
+        unreachable!(
+            "superseded by DataFlowGraph::data_flow_graph(def_arena, key_arena) — no call site"
+        )
     }
 }

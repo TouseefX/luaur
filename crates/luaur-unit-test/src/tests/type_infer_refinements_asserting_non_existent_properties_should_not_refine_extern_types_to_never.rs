@@ -20,8 +20,8 @@
 
 #[cfg(test)]
 #[test]
-fn type_infer_refinements_asserting_non_existent_properties_should_not_refine_extern_types_to_never()
-{
+fn type_infer_refinements_asserting_non_existent_properties_should_not_refine_extern_types_to_never(
+) {
     use crate::records::builtins_fixture::BuiltinsFixture;
     use crate::records::refinement_extern_type_fixture::RefinementExternTypeFixture;
     use alloc::string::String;

@@ -69,10 +69,10 @@ fn parser_parse_if_else_expression() {
         assert!(!if_else_expr1.is_null());
         let false_expr = unsafe { (*if_else_expr1).false_expr };
         let if_else_expr2 = unsafe {
-            luaur_ast::rtti::ast_node_as::<AstExprIfElse>(
-                core::ptr::addr_of_mut!((*false_expr).base)
-                    as *mut luaur_ast::records::ast_node::AstNode,
+            luaur_ast::rtti::ast_node_as::<AstExprIfElse>(core::ptr::addr_of_mut!(
+                (*false_expr).base
             )
+                as *mut luaur_ast::records::ast_node::AstNode)
         };
         assert!(!if_else_expr2.is_null());
     }
@@ -109,10 +109,10 @@ fn parser_parse_if_else_expression() {
         assert!(!if_else_expr1.is_null());
         let false_expr = unsafe { (*if_else_expr1).false_expr };
         let if_else_expr2 = unsafe {
-            luaur_ast::rtti::ast_node_as::<AstExprIfElse>(
-                core::ptr::addr_of_mut!((*false_expr).base)
-                    as *mut luaur_ast::records::ast_node::AstNode,
+            luaur_ast::rtti::ast_node_as::<AstExprIfElse>(core::ptr::addr_of_mut!(
+                (*false_expr).base
             )
+                as *mut luaur_ast::records::ast_node::AstNode)
         };
         assert!(!if_else_expr2.is_null());
     }
@@ -149,8 +149,10 @@ fn parser_parse_if_else_expression() {
         assert!(!if_else_expr.is_null());
         let condition = unsafe { (*if_else_expr).condition };
         let nested_if_else_expr = unsafe {
-            luaur_ast::rtti::ast_node_as::<AstExprIfElse>(core::ptr::addr_of_mut!((*condition).base)
-                as *mut luaur_ast::records::ast_node::AstNode)
+            luaur_ast::rtti::ast_node_as::<AstExprIfElse>(
+                core::ptr::addr_of_mut!((*condition).base)
+                    as *mut luaur_ast::records::ast_node::AstNode,
+            )
         };
         assert!(!nested_if_else_expr.is_null());
     }

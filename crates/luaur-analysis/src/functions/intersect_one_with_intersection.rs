@@ -26,7 +26,8 @@ pub fn intersect_one_with_intersection(
 
     if let Some(itv) = unsafe { get_type_id::<IntersectionType>(candidate).as_ref() } {
         for &sub_part in &itv.parts {
-            if intersect_one_with_intersection(simplifier, source, dest, sub_part) == Inhabited::No {
+            if intersect_one_with_intersection(simplifier, source, dest, sub_part) == Inhabited::No
+            {
                 return Inhabited::No;
             }
         }

@@ -288,8 +288,7 @@ impl TypeChecker {
                     AstTableAccess::Write => {
                         self.report_error_location_type_error_data(
                             &prop.access_location.unwrap_or_default(),
-                            GenericError::new(String::from("write keyword is illegal here"))
-                                .into(),
+                            GenericError::new(String::from("write keyword is illegal here")).into(),
                         );
                     }
                     AstTableAccess::ReadWrite => {
@@ -327,8 +326,7 @@ impl TypeChecker {
                     AstTableAccess::Write => {
                         self.report_error_location_type_error_data(
                             &indexer.access_location.unwrap_or_default(),
-                            GenericError::new(String::from("write keyword is illegal here"))
-                                .into(),
+                            GenericError::new(String::from("write keyword is illegal here")).into(),
                         );
                         None
                     }

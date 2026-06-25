@@ -5,5 +5,7 @@
 /// `match` over the enum instead of calling this. This node exists as the
 /// pinned overload contract.
 pub fn visit<Visitor, V, R>(_vis: Visitor, _var: &V) -> R {
-    unreachable!("C++ Variant visit() template; Rust uses match over the Variant enum — no call site")
+    unreachable!(
+        "C++ Variant visit() template; Rust uses match over the Variant enum — no call site"
+    )
 }

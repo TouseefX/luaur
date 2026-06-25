@@ -13,7 +13,9 @@ impl InfiniteTypeFinder {
     ) -> Self {
         let mut visitor = InfiniteTypeFinder {
             base: IterativeTypeVisitor {
-                seen: luaur_common::records::dense_hash_set::DenseHashSet::new(core::ptr::null_mut()),
+                seen: luaur_common::records::dense_hash_set::DenseHashSet::new(
+                    core::ptr::null_mut(),
+                ),
                 work_queue: alloc::vec::Vec::new(),
                 parent_cursor: -1,
                 work_cursor: 0,

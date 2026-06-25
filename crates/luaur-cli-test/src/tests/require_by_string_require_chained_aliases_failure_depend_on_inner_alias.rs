@@ -38,7 +38,9 @@ fn require_by_string_require_chained_aliases_failure_depend_on_inner_alias() {
         repl_with_path_fixture_run_protected_require(&fixture, &path);
         fixture.assert_output_contains_all(&[
             String::from("false"),
-            String::from("error requiring module \"@dependoninner\": @passthroughinner is not a valid alias"),
+            String::from(
+                "error requiring module \"@dependoninner\": @passthroughinner is not a valid alias",
+            ),
         ]);
     }
     {
@@ -47,7 +49,9 @@ fn require_by_string_require_chained_aliases_failure_depend_on_inner_alias() {
         repl_with_path_fixture_run_protected_require(&fixture, &path);
         fixture.assert_output_contains_all(&[
             String::from("false"),
-            String::from("error requiring module \"@dependoninner\": @passthroughinner is not a valid alias"),
+            String::from(
+                "error requiring module \"@dependoninner\": @passthroughinner is not a valid alias",
+            ),
         ]);
     }
 }

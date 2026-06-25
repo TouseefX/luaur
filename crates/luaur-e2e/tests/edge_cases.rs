@@ -17,7 +17,9 @@ use std::time::Duration;
 /// `panic_any` for `longjmp`-style control flow, but those caught unwinds are
 /// silenced — an escaped "panicked at"/"Box<dyn Any>" means a real defect.
 fn no_panic() -> impl Predicate<str> {
-    predicate::str::contains("panicked").not().and(predicate::str::contains("Box<dyn Any>").not())
+    predicate::str::contains("panicked")
+        .not()
+        .and(predicate::str::contains("Box<dyn Any>").not())
 }
 
 // ---------------------------------------------------------------------------
@@ -70,14 +72,22 @@ fn hundred_thousand_line_script_runs() {
 fn moderate_nested_parens_succeed() {
     let src = format!("return {}1{}\n", "(".repeat(200), ")".repeat(200));
     let (_dir, path) = write_script("nest.luau", &src);
-    bin("luaur").arg(&path).assert().success().stderr(no_panic());
+    bin("luaur")
+        .arg(&path)
+        .assert()
+        .success()
+        .stderr(no_panic());
 }
 
 #[test]
 fn moderate_nested_tables_succeed() {
     let src = format!("return {}1{}\n", "{".repeat(200), "}".repeat(200));
     let (_dir, path) = write_script("tab.luau", &src);
-    bin("luaur").arg(&path).assert().success().stderr(no_panic());
+    bin("luaur")
+        .arg(&path)
+        .assert()
+        .success()
+        .stderr(no_panic());
 }
 
 #[test]
@@ -177,7 +187,10 @@ fn non_ascii_identifier_errors_like_upstream() {
     // Luau forbids non-ASCII identifiers; the parser reports a clean error
     // (matches upstream `luau`). The library `compile` surfaces it as `Err`.
     let err = compile("local é = 1\nreturn é").expect_err("non-ascii ident should be Err");
-    assert!(err.contains("Unicode character"), "expected unicode-ident error: {err}");
+    assert!(
+        err.contains("Unicode character"),
+        "expected unicode-ident error: {err}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -191,10 +204,7 @@ fn invalid_utf8_in_source_is_defined() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("badutf.luau");
     std::fs::write(&path, b"print(\"\xff\xfe ok\")\n").unwrap();
-    bin("luaur")
-        .arg(&path)
-        .assert()
-        .stderr(no_panic());
+    bin("luaur").arg(&path).assert().stderr(no_panic());
 }
 
 // ---------------------------------------------------------------------------
@@ -285,5 +295,8 @@ fn infinite_loop_is_killed_by_timeout_not_hung() {
         "infinite loop should have been killed, not exited successfully"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(!stderr.contains("panicked"), "unexpected panic in stderr: {stderr}");
+    assert!(
+        !stderr.contains("panicked"),
+        "unexpected panic in stderr: {stderr}"
+    );
 }

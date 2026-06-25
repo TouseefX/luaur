@@ -195,10 +195,15 @@ fn test_value_conversions() -> Result<()> {
     assert_eq!(Value::Number(1.23).as_f64(), Some(1.23f64));
     assert!(Value::String(lua.create_string("hello")).is_string());
     assert_eq!(
-        Value::String(lua.create_string("hello")).as_string().unwrap(),
+        Value::String(lua.create_string("hello"))
+            .as_string()
+            .unwrap(),
         "hello"
     );
-    assert_eq!(Value::String(lua.create_string("hello")).to_string()?, "hello");
+    assert_eq!(
+        Value::String(lua.create_string("hello")).to_string()?,
+        "hello"
+    );
     assert!(Value::Table(lua.create_table()).is_table());
     assert!(Value::Table(lua.create_table()).as_table().is_some());
     assert!(Value::Function(lua.create_function(|_, ()| Ok(())).unwrap()).is_function());
@@ -248,7 +253,7 @@ fn test_value_vector_buffer() -> Result<()> {
     assert_eq!(bval, Value::Buffer(buf));
     let other = lua.create_buffer(b"hello")?;
     assert_ne!(bval, Value::Buffer(other)); // same bytes, distinct objects
-    // `tostring` of a buffer is the Luau `buffer: 0x...` form.
+                                            // `tostring` of a buffer is the Luau `buffer: 0x...` form.
     assert!(bval.to_string()?.starts_with("buffer:"));
 
     Ok(())

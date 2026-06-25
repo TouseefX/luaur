@@ -16,7 +16,10 @@ use core::ffi::c_char;
 
 pub fn create_token(context: &GlobalContext, name: *const c_char, category: *const c_char) -> u16 {
     // `scoped_lock lock(context.mutex)` — the lock guards the mutable state.
-    let mut state = context.state.lock().expect("TimeTrace GlobalContext mutex poisoned");
+    let mut state = context
+        .state
+        .lock()
+        .expect("TimeTrace GlobalContext mutex poisoned");
 
     LUAU_ASSERT!(state.tokens.len() < 64 * 1024);
 

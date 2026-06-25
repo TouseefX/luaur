@@ -9,9 +9,9 @@
 
 use crate::error::Result;
 use crate::function::Function;
-use crate::sys::*;
 use crate::state::Lua;
 use crate::string::LuaString;
+use crate::sys::*;
 use crate::table::Table;
 
 /// The integer type exposed by the API. Mirrors `mlua::Integer` (`i64`).

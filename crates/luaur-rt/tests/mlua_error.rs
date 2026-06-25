@@ -32,9 +32,8 @@ fn test_rust_error_surfaces_to_lua() -> Result<()> {
     // message is preserved (the portable slice of mlua's error semantics).
     let lua = Lua::new();
 
-    let func = lua.create_function(|_, ()| -> Result<()> {
-        Err(Error::runtime("runtime error"))
-    })?;
+    let func =
+        lua.create_function(|_, ()| -> Result<()> { Err(Error::runtime("runtime error")) })?;
     lua.globals().set("func", func)?;
 
     let msg = lua
@@ -65,10 +64,7 @@ fn test_external_io_error_message_preserved() -> Result<()> {
 #[test]
 fn test_error_display() {
     // Display formats are part of the observable contract.
-    assert_eq!(
-        Error::runtime("boom").to_string(),
-        "runtime error: boom"
-    );
+    assert_eq!(Error::runtime("boom").to_string(), "runtime error: boom");
     let conv = Error::FromLuaConversionError {
         from: "nil",
         to: "String".to_string(),

@@ -32,10 +32,10 @@ use std::any::TypeId;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use crate::error::{Error, Result};
-use crate::sys::*;
 use crate::function::Function;
 use crate::multi::MultiValue;
 use crate::state::Lua;
+use crate::sys::*;
 
 // ---------------------------------------------------------------------------
 // Structured error objects (for errors that must survive the Lua boundary)
@@ -91,9 +91,7 @@ unsafe extern "C" fn wrapped_error_dtor(ptr: *mut c_void) {
 /// preserve backward-compatible `RuntimeError` behavior.
 pub(crate) fn is_structured(err: &Error) -> bool {
     match err {
-        Error::CallbackDestructed
-        | Error::UserDataDestructed
-        | Error::RecursiveMutCallback => true,
+        Error::CallbackDestructed | Error::UserDataDestructed | Error::RecursiveMutCallback => true,
         // A `CallbackError` produced when a *nested* structured error crossed a
         // `pcall` boundary is itself re-raised structured, so each boundary adds
         // one `CallbackError` wrapper layer — mirroring mlua's nested
@@ -291,7 +289,9 @@ pub(crate) fn create_callback_function(lua: &Lua, callback: BoxedCallback) -> Re
             Some(callback_dtor),
         );
         if storage.is_null() {
-            return Err(Error::runtime("luaur-rt: failed to allocate callback userdata"));
+            return Err(Error::runtime(
+                "luaur-rt: failed to allocate callback userdata",
+            ));
         }
         // Move the box into the userdata storage (do NOT run its drop here).
         core::ptr::write(storage as *mut BoxedCallback, callback);
@@ -342,8 +342,7 @@ pub(crate) fn destruct_callback(func: &Function) {
             let slot = ud as *mut BoxedCallback;
             // Swap in the sentinel; the returned old box is dropped at end of
             // scope here, running Drop on the original closure's captures.
-            let sentinel: BoxedCallback =
-                Box::new(|_lua, _args| Err(Error::CallbackDestructed));
+            let sentinel: BoxedCallback = Box::new(|_lua, _args| Err(Error::CallbackDestructed));
             let old = core::ptr::replace(slot, sentinel);
             drop(old);
         }

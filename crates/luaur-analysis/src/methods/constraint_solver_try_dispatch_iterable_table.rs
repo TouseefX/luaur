@@ -254,7 +254,12 @@ impl ConstraintSolver {
             unsafe { get_type_id::<MetatableType>(iterator_ty).as_ref() }
         {
             // If the metatable does not contain a `__iter` metamethod, then we iterate over the table part of the metatable.
-            return self.try_dispatch_iterable_table(iterator_metatable.table, c, constraint, force);
+            return self.try_dispatch_iterable_table(
+                iterator_metatable.table,
+                c,
+                constraint,
+                force,
+            );
         }
 
         if let Some(primitive_ty) = unsafe { get_type_id::<PrimitiveType>(iterator_ty).as_ref() } {

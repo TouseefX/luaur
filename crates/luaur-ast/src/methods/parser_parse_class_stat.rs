@@ -117,7 +117,9 @@ impl Parser {
                 } else {
                     class_member_namespace.insert(prop_name.name);
 
-                    luaur_common::LUAU_ASSERT!(prop_type.is_null() == type_colon_location.is_none());
+                    luaur_common::LUAU_ASSERT!(
+                        prop_type.is_null() == type_colon_location.is_none()
+                    );
                     declarations.push_back(Variant2::V0(AstClassProperty {
                         qualifier_location: qualifier_location.unwrap_or_default(),
                         name: prop_name.name,

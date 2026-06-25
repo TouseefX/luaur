@@ -280,7 +280,10 @@ impl<'de> serde::Deserializer<'de> for Deserializer {
                 if deserializer.index > deserializer.len {
                     Ok(seq)
                 } else {
-                    Err(de::Error::invalid_length(len, &"fewer elements in the table"))
+                    Err(de::Error::invalid_length(
+                        len,
+                        &"fewer elements in the table",
+                    ))
                 }
             }
             value => Err(de::Error::invalid_type(
@@ -620,7 +623,9 @@ impl<'de> de::VariantAccess<'de> for VariantDeserializer {
         T: de::DeserializeSeed<'de>,
     {
         match self.value {
-            Some(value) => seed.deserialize(Deserializer::from_parts(value, self.options, self.visited)),
+            Some(value) => {
+                seed.deserialize(Deserializer::from_parts(value, self.options, self.visited))
+            }
             None => Err(de::Error::invalid_type(
                 de::Unexpected::UnitVariant,
                 &"newtype variant",
@@ -783,8 +788,12 @@ fn sort_cmp(a: &Value, b: &Value) -> std::cmp::Ordering {
         (Value::Boolean(_), _) => Ordering::Less,
         (_, Value::Boolean(_)) => Ordering::Greater,
         (Value::Integer(x), Value::Integer(y)) => x.cmp(y),
-        (Value::Integer(x), Value::Number(y)) => (*x as f64).partial_cmp(y).unwrap_or(Ordering::Equal),
-        (Value::Number(x), Value::Integer(y)) => x.partial_cmp(&(*y as f64)).unwrap_or(Ordering::Equal),
+        (Value::Integer(x), Value::Number(y)) => {
+            (*x as f64).partial_cmp(y).unwrap_or(Ordering::Equal)
+        }
+        (Value::Number(x), Value::Integer(y)) => {
+            x.partial_cmp(&(*y as f64)).unwrap_or(Ordering::Equal)
+        }
         (Value::Number(x), Value::Number(y)) => x.partial_cmp(y).unwrap_or(Ordering::Equal),
         (Value::Integer(_) | Value::Number(_), _) => Ordering::Less,
         (_, Value::Integer(_) | Value::Number(_)) => Ordering::Greater,

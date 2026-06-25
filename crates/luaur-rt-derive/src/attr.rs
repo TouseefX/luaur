@@ -61,9 +61,9 @@ impl LuaAttr {
                 ));
             }
             _ => {
-                return Err(meta.error(
-                    "unsupported lua attribute, expected: `skip`, `get`, `set`, `name`",
-                ));
+                return Err(
+                    meta.error("unsupported lua attribute, expected: `skip`, `get`, `set`, `name`")
+                );
             }
         }
         Ok(())

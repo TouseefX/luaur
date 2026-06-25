@@ -49,7 +49,10 @@ foo(@1)
             assert!(entry.kind == AutocompleteEntryKind::GeneratedFunction);
             assert!(entry.type_correct == TypeCorrectKind::Correct);
             LUAU_ASSERT!(entry.insert_text.is_some());
-            assert_eq!(expected_insert, entry.insert_text.as_ref().unwrap().as_str());
+            assert_eq!(
+                expected_insert,
+                entry.insert_text.as_ref().unwrap().as_str()
+            );
         }),
         None,
     );

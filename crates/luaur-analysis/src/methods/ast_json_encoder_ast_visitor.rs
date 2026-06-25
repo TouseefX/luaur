@@ -53,7 +53,9 @@ impl AstVisitor for AstJsonEncoder {
     }
 
     fn visit_expr_if_else(&mut self, node: *mut core::ffi::c_void) -> bool {
-        self.visit_ast_expr_if_else(node as *mut luaur_ast::records::ast_expr_if_else::AstExprIfElse)
+        self.visit_ast_expr_if_else(
+            node as *mut luaur_ast::records::ast_expr_if_else::AstExprIfElse,
+        )
     }
 
     fn visit_expr_interp_string(&mut self, node: *mut core::ffi::c_void) -> bool {

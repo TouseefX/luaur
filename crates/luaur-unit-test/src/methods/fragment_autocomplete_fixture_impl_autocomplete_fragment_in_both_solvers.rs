@@ -27,32 +27,30 @@ impl FragmentAutocompleteFixtureImpl {
 
         {
             let _sff = ScopedFastFlag::new(&FFlag::DebugLuauForceOldSolver, false);
-            self.base.get_frontend().set_luau_solver_mode(SolverMode::New);
+            self.base
+                .get_frontend()
+                .set_luau_solver_mode(SolverMode::New);
             self.base
                 .base
                 .check_string_optional_frontend_options(&clean_document, Some(get_options()));
 
-            let mut result = self.autocomplete_fragment(
-                &clean_updated,
-                cursor_pos,
-                fragment_end_position,
-            );
+            let mut result =
+                self.autocomplete_fragment(&clean_updated, cursor_pos, fragment_end_position);
             LUAU_ASSERT!(result.status != FragmentAutocompleteStatus::InternalIce);
             assertions(&mut result);
         }
 
         {
             let _sff = ScopedFastFlag::new(&FFlag::DebugLuauForceOldSolver, true);
-            self.base.get_frontend().set_luau_solver_mode(SolverMode::Old);
+            self.base
+                .get_frontend()
+                .set_luau_solver_mode(SolverMode::Old);
             self.base
                 .base
                 .check_string_optional_frontend_options(&clean_document, Some(get_options()));
 
-            let mut result = self.autocomplete_fragment(
-                &clean_updated,
-                cursor_pos,
-                fragment_end_position,
-            );
+            let mut result =
+                self.autocomplete_fragment(&clean_updated, cursor_pos, fragment_end_position);
             LUAU_ASSERT!(result.status != FragmentAutocompleteStatus::InternalIce);
             assertions(&mut result);
         }

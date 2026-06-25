@@ -38,11 +38,13 @@ fn type_infer_refinements_typeguard_cast_free_table_to_vector() {
     let mut fixture = RefinementExternTypeFixture {
         base: BuiltinsFixture::default(),
     };
-    fixture.get_frontend().set_luau_solver_mode(if !FFlag::DebugLuauForceOldSolver.get() {
-        SolverMode::New
-    } else {
-        SolverMode::Old
-    });
+    fixture
+        .get_frontend()
+        .set_luau_solver_mode(if !FFlag::DebugLuauForceOldSolver.get() {
+            SolverMode::New
+        } else {
+            SolverMode::Old
+        });
     let result = fixture.base.base.check_string_optional_frontend_options(
         &String::from(
             r#"

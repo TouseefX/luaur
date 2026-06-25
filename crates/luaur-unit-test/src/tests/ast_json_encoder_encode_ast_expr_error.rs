@@ -41,7 +41,8 @@ fn ast_json_encoder_encode_ast_expr_error() {
 
     assert_eq!(1, unsafe { (*parse_result.root).body.size });
     let stat = unsafe { *(*parse_result.root).body.data.add(0) };
-    let stat_assign = unsafe { luaur_ast::rtti::ast_node_as::<AstStatAssign>(stat as *mut AstNode) };
+    let stat_assign =
+        unsafe { luaur_ast::rtti::ast_node_as::<AstStatAssign>(stat as *mut AstNode) };
     assert!(!stat_assign.is_null());
     assert_eq!(1, unsafe { (*stat_assign).values.size });
     let expr = unsafe { *(*stat_assign).values.data.add(0) };

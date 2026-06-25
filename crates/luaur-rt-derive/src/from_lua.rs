@@ -13,7 +13,9 @@ use syn::{parse_macro_input, parse_quote, DeriveInput};
 
 pub fn from_lua(input: TokenStream) -> TokenStream {
     let DeriveInput {
-        ident, mut generics, ..
+        ident,
+        mut generics,
+        ..
     } = parse_macro_input!(input as DeriveInput);
 
     let ident_str = ident.to_string();

@@ -17,10 +17,10 @@ use alloc::borrow::Cow;
 use alloc::string::String;
 
 use rustyline::completion::{Completer, Pair};
+use rustyline::config::Config;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
-use rustyline::config::Config;
 use rustyline::history::FileHistory;
 use rustyline::validate::{ValidationContext, ValidationResult, Validator};
 use rustyline::{Context, Editor, Helper};

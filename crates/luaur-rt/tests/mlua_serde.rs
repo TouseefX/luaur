@@ -123,7 +123,9 @@ fn test_serialize_failure() -> Result<(), Box<dyn StdError>> {
 fn test_serialize_vector() -> Result<(), Box<dyn StdError>> {
     let lua = Lua::new();
 
-    let val = lua.load("{_vector = vector.create(1, 2, 3)}").eval::<Value>()?;
+    let val = lua
+        .load("{_vector = vector.create(1, 2, 3)}")
+        .eval::<Value>()?;
     let json = serde_json::json!({
         "_vector": [1.0, 2.0, 3.0],
     });
@@ -228,12 +230,14 @@ fn test_serialize_empty_table() -> LuaResult<()> {
     assert_eq!(json, "{}");
 
     // Set the option to encode empty tables as array
-    let json = serde_json::to_string(&table.to_serializable().encode_empty_tables_as_array(true)).unwrap();
+    let json =
+        serde_json::to_string(&table.to_serializable().encode_empty_tables_as_array(true)).unwrap();
     assert_eq!(json, "[]");
 
     // Check hashmap table with this option
     table.as_table().unwrap().set("hello", "world")?;
-    let json = serde_json::to_string(&table.to_serializable().encode_empty_tables_as_array(true)).unwrap();
+    let json =
+        serde_json::to_string(&table.to_serializable().encode_empty_tables_as_array(true)).unwrap();
     assert_eq!(json, r#"{"hello":"world"}"#);
 
     Ok(())
@@ -385,7 +389,10 @@ fn test_to_value_with_options() -> Result<(), Box<dyn StdError>> {
         unit: (),
         unitstruct: UnitStruct,
     };
-    let data2 = lua.to_value_with(&mydata, SerializeOptions::new().serialize_none_to_null(false))?;
+    let data2 = lua.to_value_with(
+        &mydata,
+        SerializeOptions::new().serialize_none_to_null(false),
+    )?;
     globals.set("data2", data2)?;
     lua.load(
         r#"
@@ -397,7 +404,10 @@ fn test_to_value_with_options() -> Result<(), Box<dyn StdError>> {
     .exec()?;
 
     // serialize_unit_to_null
-    let data3 = lua.to_value_with(&mydata, SerializeOptions::new().serialize_unit_to_null(false))?;
+    let data3 = lua.to_value_with(
+        &mydata,
+        SerializeOptions::new().serialize_unit_to_null(false),
+    )?;
     globals.set("data3", data3)?;
     lua.load(
         r#"

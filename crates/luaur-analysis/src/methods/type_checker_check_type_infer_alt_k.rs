@@ -71,12 +71,9 @@ impl TypeChecker {
                 false,
             )
             .r#type;
-        self.unify_type_id_type_id_scope_ptr_location(
-            from_ty,
-            loop_var_type,
-            scope,
-            unsafe { &(*expr.from).base.location },
-        );
+        self.unify_type_id_type_id_scope_ptr_location(from_ty, loop_var_type, scope, unsafe {
+            &(*expr.from).base.location
+        });
 
         // unify(checkExpr(loopScope, *expr.to).type, loopVarType, scope, expr.to->location);
         let to_ty = self
@@ -87,12 +84,9 @@ impl TypeChecker {
                 false,
             )
             .r#type;
-        self.unify_type_id_type_id_scope_ptr_location(
-            to_ty,
-            loop_var_type,
-            scope,
-            unsafe { &(*expr.to).base.location },
-        );
+        self.unify_type_id_type_id_scope_ptr_location(to_ty, loop_var_type, scope, unsafe {
+            &(*expr.to).base.location
+        });
 
         // if (expr.step)
         //     unify(checkExpr(loopScope, *expr.step).type, loopVarType, scope, expr.step->location);
@@ -105,12 +99,9 @@ impl TypeChecker {
                     false,
                 )
                 .r#type;
-            self.unify_type_id_type_id_scope_ptr_location(
-                step_ty,
-                loop_var_type,
-                scope,
-                unsafe { &(*expr.step).base.location },
-            );
+            self.unify_type_id_type_id_scope_ptr_location(step_ty, loop_var_type, scope, unsafe {
+                &(*expr.step).base.location
+            });
         }
 
         // check(loopScope, *expr.body);

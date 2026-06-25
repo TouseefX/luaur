@@ -22,8 +22,8 @@
 
 use std::ffi::CStr;
 
-use crate::sys::*;
 use crate::state::Lua;
+use crate::sys::*;
 
 /// What kind of function an activation record refers to. Mirrors the relevant
 /// part of `mlua::debug::DebugSource::what`.
@@ -93,7 +93,12 @@ impl Lua {
             let mut ar: LuaDebug = core::mem::zeroed();
             // `lua_getinfo` with a non-negative level walks call-info depth.
             let opt = c"nsl";
-            let ok = lua_getinfo(state, level as c_int, opt.as_ptr() as *const c_char, &mut ar);
+            let ok = lua_getinfo(
+                state,
+                level as c_int,
+                opt.as_ptr() as *const c_char,
+                &mut ar,
+            );
             if ok == 0 {
                 return None;
             }

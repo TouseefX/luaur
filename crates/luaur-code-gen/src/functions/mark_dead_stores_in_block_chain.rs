@@ -75,7 +75,8 @@ pub fn mark_dead_stores_in_block_chain(
                 // If this block isn't glued to the target in the lowering order, we cannot capture any remaining stores from it in ExitSync blocks
                 let expected_next =
                     unsafe { (&(*function).blocks)[block_idx as usize].expected_next_block };
-                if luaur_common::FFlag::LuauCodegenVmExitSyncFix.get() && expected_next != target_idx
+                if luaur_common::FFlag::LuauCodegenVmExitSyncFix.get()
+                    && expected_next != target_idx
                 {
                     state.invalidate_value_propagation();
                 }

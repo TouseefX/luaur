@@ -127,7 +127,9 @@ impl TypeSimplifier {
                     {
                         return builtin_types.falseType;
                     } else if st.variant
-                        == luaur_common::records::variant::Variant2::V0(BooleanSingleton::new(false))
+                        == luaur_common::records::variant::Variant2::V0(BooleanSingleton::new(
+                            false,
+                        ))
                     {
                         return builtin_types.trueType;
                     } else {

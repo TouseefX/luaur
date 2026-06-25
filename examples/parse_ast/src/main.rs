@@ -36,7 +36,10 @@ fn main() {
     // Error recovery: the parser reports diagnostics with source locations.
     let bad = "local x = \nreturn x +";
     let result = parse(bad);
-    println!("\nmalformed input produced {} error(s):", result.errors.len());
+    println!(
+        "\nmalformed input produced {} error(s):",
+        result.errors.len()
+    );
     for e in &result.errors {
         let loc = e.get_location();
         println!("  line {}: {}", loc.begin.line + 1, e.what());

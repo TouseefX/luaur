@@ -5,6 +5,8 @@ impl<T, const N: usize> SmallVector<T, N> {
     /// array/iterator (`from_iter`/`vec!`-style) instead, so this ctor overload
     /// has no call site.
     pub fn small_vector_initializer_list_t(&mut self) {
-        unreachable!("C++ SmallVector initializer_list ctor; Rust builds from iterator/array — no call site")
+        unreachable!(
+            "C++ SmallVector initializer_list ctor; Rust builds from iterator/array — no call site"
+        )
     }
 }

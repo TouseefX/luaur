@@ -59,6 +59,8 @@ impl Drop for TaskScheduler {
     /// `~TaskScheduler()` (`CLI/src/Analyze.cpp:339-346`):
     /// pushes one empty task per worker, then joins them.
     fn drop(&mut self) {
-        crate::methods::task_scheduler_task_scheduler_analyze_alt_b::task_scheduler_destructor(self);
+        crate::methods::task_scheduler_task_scheduler_analyze_alt_b::task_scheduler_destructor(
+            self,
+        );
     }
 }

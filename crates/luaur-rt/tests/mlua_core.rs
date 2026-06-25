@@ -42,13 +42,13 @@
 
 use std::collections::HashMap;
 use std::iter::FromIterator;
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Arc;
 use std::{error, f32, f64, fmt};
 
 use luaur_rt::{
-    ChunkMode, Error, ExternalError, Function, Lua, LuaOptions, Nil, Result, StdLib, Table,
-    UserData, Value, Variadic, ffi,
+    ffi, ChunkMode, Error, ExternalError, Function, Lua, LuaOptions, Nil, Result, StdLib, Table,
+    UserData, Value, Variadic,
 };
 
 #[test]
@@ -127,7 +127,10 @@ fn test_eval() -> Result<()> {
             incomplete_input: true,
             ..
         }) => {}
-        r => panic!("expected SyntaxError with incomplete_input=true, got {:?}", r),
+        r => panic!(
+            "expected SyntaxError with incomplete_input=true, got {:?}",
+            r
+        ),
     }
 
     Ok(())
@@ -290,7 +293,8 @@ fn test_error() -> Result<()> {
     )
     .exec()?;
 
-    let rust_error_function = lua.create_function(|_, ()| -> Result<()> { Err(TestError.into_lua_err()) })?;
+    let rust_error_function =
+        lua.create_function(|_, ()| -> Result<()> { Err(TestError.into_lua_err()) })?;
     globals.set("rust_error_function", rust_error_function)?;
 
     let no_error = globals.get::<Function>("no_error")?;
@@ -319,7 +323,10 @@ fn test_error() -> Result<()> {
     let return_string_error = globals.get::<Function>("return_string_error")?;
     assert!(return_string_error.call::<Error>(()).is_ok());
 
-    match lua.load("if you are happy and you know it syntax error").exec() {
+    match lua
+        .load("if you are happy and you know it syntax error")
+        .exec()
+    {
         Err(Error::SyntaxError {
             incomplete_input: false,
             ..
@@ -476,7 +483,10 @@ fn test_pcall_xpcall() -> Result<()> {
     assert_eq!(globals.get::<String>("pcall_error")?, "testerror");
 
     assert_eq!(globals.get::<bool>("xpcall_statusr")?, false);
-    assert_eq!(globals.get::<std::string::String>("xpcall_error")?, "testerror");
+    assert_eq!(
+        globals.get::<std::string::String>("xpcall_error")?,
+        "testerror"
+    );
 
     // Make sure that weird xpcall error recursion at least doesn't cause unsafety or panics.
     lua.load(
@@ -753,7 +763,10 @@ fn test_application_data() -> Result<()> {
     f.call::<()>(())?;
 
     assert_eq!(*lua.app_data_ref::<&str>().unwrap(), "test4");
-    assert_eq!(*lua.app_data_ref::<Vec<&str>>().unwrap(), vec!["test2", "test3"]);
+    assert_eq!(
+        *lua.app_data_ref::<Vec<&str>>().unwrap(),
+        vec!["test2", "test3"]
+    );
 
     lua.remove_app_data::<Vec<&str>>();
     assert!(matches!(lua.app_data_ref::<Vec<&str>>(), None));
@@ -817,7 +830,11 @@ fn test_too_many_arguments() -> Result<()> {
     let lua = Lua::new();
     lua.load("function test(...) end").exec()?;
     let args = Variadic::from_iter(1..1000000);
-    assert!(lua.globals().get::<Function>("test")?.call::<()>(args).is_err());
+    assert!(lua
+        .globals()
+        .get::<Function>("test")?
+        .call::<()>(args)
+        .is_err());
     Ok(())
 }
 
@@ -825,7 +842,8 @@ fn test_too_many_arguments() -> Result<()> {
 fn test_too_many_recursions() -> Result<()> {
     let lua = Lua::new();
 
-    let f = lua.create_function(move |lua, ()| lua.globals().get::<Function>("f")?.call::<()>(()))?;
+    let f =
+        lua.create_function(move |lua, ()| lua.globals().get::<Function>("f")?.call::<()>(()))?;
 
     lua.globals().set("f", &f)?;
     assert!(f.call::<()>(()).is_err());
@@ -860,7 +878,10 @@ fn test_large_args() -> Result<()> {
         )
         .eval()?;
 
-    assert_eq!(f.call::<usize>((0..100).collect::<Variadic<usize>>())?, 4950);
+    assert_eq!(
+        f.call::<usize>((0..100).collect::<Variadic<usize>>())?,
+        4950
+    );
 
     Ok(())
 }
@@ -1002,8 +1023,9 @@ fn test_traceback_deferred() -> Result<()> {
 
     // Inside a call chain, the traceback names the enclosing functions luaur
     // can resolve (the `function <name>` frame form).
-    let get_traceback = lua
-        .create_function(|lua, (msg, level): (Option<String>, usize)| lua.traceback(msg.as_deref(), level))?;
+    let get_traceback = lua.create_function(|lua, (msg, level): (Option<String>, usize)| {
+        lua.traceback(msg.as_deref(), level)
+    })?;
     lua.globals().set("get_traceback", get_traceback)?;
 
     let tb: String = lua
@@ -1144,8 +1166,16 @@ fn test_load_mode_deferred() -> Result<()> {
     // `set_mode` is a no-op for signature parity. We pin the text-eval behavior
     // that luaur-rt *does* back, and that `ChunkMode` exists.
     let lua = unsafe { Lua::unsafe_new() };
-    assert_eq!(lua.load("1 + 1").set_mode(ChunkMode::Text).eval::<i32>()?, 2);
-    assert_eq!(lua.load("return 1 + 1").set_mode(ChunkMode::Binary).eval::<i32>()?, 2);
+    assert_eq!(
+        lua.load("1 + 1").set_mode(ChunkMode::Text).eval::<i32>()?,
+        2
+    );
+    assert_eq!(
+        lua.load("return 1 + 1")
+            .set_mode(ChunkMode::Binary)
+            .eval::<i32>()?,
+        2
+    );
     Ok(())
 }
 
@@ -1167,7 +1197,8 @@ fn test_panic_deferred() -> Result<()> {
     let lua = Lua::new_with(StdLib::ALL_SAFE, LuaOptions::default())?;
     let rust_panic_function =
         lua.create_function(|_, ()| -> Result<()> { panic!("rust panic") })?;
-    lua.globals().set("rust_panic_function", rust_panic_function)?;
+    lua.globals()
+        .set("rust_panic_function", rust_panic_function)?;
 
     // Direct call: the panic is caught and surfaced as a runtime error.
     match lua.load("rust_panic_function()").exec() {

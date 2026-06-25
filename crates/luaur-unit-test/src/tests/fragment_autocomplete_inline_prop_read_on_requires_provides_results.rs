@@ -43,10 +43,16 @@ return mod
         .insert(String::from("MainModule/A"), module_a);
     fixture
         .get_frontend()
-        .check_module_name_optional_frontend_options(&String::from("MainModule/A"), Some(get_options()));
+        .check_module_name_optional_frontend_options(
+            &String::from("MainModule/A"),
+            Some(get_options()),
+        );
     fixture
         .get_frontend()
-        .check_module_name_optional_frontend_options(&String::from("MainModule"), Some(get_options()));
+        .check_module_name_optional_frontend_options(
+            &String::from("MainModule"),
+            Some(get_options()),
+        );
 
     let updated_main = String::from(
         r#"

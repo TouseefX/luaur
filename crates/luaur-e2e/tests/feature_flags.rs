@@ -23,10 +23,16 @@ fn library_fflag_toggle_is_observable() {
     let original = FFlag::LuauCompileFoldOptimize.get();
 
     FFlag::LuauCompileFoldOptimize.set(false);
-    assert!(!FFlag::LuauCompileFoldOptimize.get(), "flag should read back false");
+    assert!(
+        !FFlag::LuauCompileFoldOptimize.get(),
+        "flag should read back false"
+    );
 
     FFlag::LuauCompileFoldOptimize.set(true);
-    assert!(FFlag::LuauCompileFoldOptimize.get(), "flag should read back true");
+    assert!(
+        FFlag::LuauCompileFoldOptimize.get(),
+        "flag should read back true"
+    );
 
     // Restore so we don't perturb other tests sharing this process.
     FFlag::LuauCompileFoldOptimize.set(original);
@@ -37,7 +43,10 @@ fn set_all_flags_round_trips() {
     // The CLI's setLuauFlagsDefault() analog must run without panicking and be
     // observable on at least one representative flag.
     luaur_common::set_all_flags(true);
-    assert!(luaur_common::FFlag::LuauConst2.get(), "set_all_flags(true) should enable Luau flags");
+    assert!(
+        luaur_common::FFlag::LuauConst2.get(),
+        "set_all_flags(true) should enable Luau flags"
+    );
 }
 
 // ---------------------------------------------------------------------------

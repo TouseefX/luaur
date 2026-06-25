@@ -208,13 +208,14 @@ impl Serialize for SerializableTable<'_> {
 
         // Map
         let mut map = serializer.serialize_map(None)?;
-        let pairs = MapPairs::new(self.table, options.sort_keys).map_err(serde::ser::Error::custom)?;
+        let pairs =
+            MapPairs::new(self.table, options.sort_keys).map_err(serde::ser::Error::custom)?;
         for kv in pairs {
             let (key, value) = kv.map_err(serde::ser::Error::custom)?;
             let skip_key =
                 check_value_for_skip(&key, options, visited).map_err(serde::ser::Error::custom)?;
-            let skip_value =
-                check_value_for_skip(&value, options, visited).map_err(serde::ser::Error::custom)?;
+            let skip_value = check_value_for_skip(&value, options, visited)
+                .map_err(serde::ser::Error::custom)?;
             if skip_key || skip_value {
                 continue;
             }

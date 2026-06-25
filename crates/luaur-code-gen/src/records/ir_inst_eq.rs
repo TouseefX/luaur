@@ -55,7 +55,9 @@ impl IrInstEq {
     }
 }
 
-impl luaur_common::records::dense_hash_table::DenseEq<crate::records::ir_inst::IrInst> for IrInstEq {
+impl luaur_common::records::dense_hash_table::DenseEq<crate::records::ir_inst::IrInst>
+    for IrInstEq
+{
     fn eq(&self, a: &crate::records::ir_inst::IrInst, b: &crate::records::ir_inst::IrInst) -> bool {
         self.ir_inst_eq_operator_call(a, b)
     }

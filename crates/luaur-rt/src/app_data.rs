@@ -67,7 +67,9 @@ impl<T: 'static> Drop for AppDataRef<T> {
 impl<T: 'static> Deref for AppDataRef<T> {
     type Target = T;
     fn deref(&self) -> &T {
-        self.guard.downcast_ref::<T>().expect("app data type mismatch")
+        self.guard
+            .downcast_ref::<T>()
+            .expect("app data type mismatch")
     }
 }
 
@@ -107,13 +109,17 @@ impl<T: 'static> Drop for AppDataRefMut<T> {
 impl<T: 'static> Deref for AppDataRefMut<T> {
     type Target = T;
     fn deref(&self) -> &T {
-        self.guard.downcast_ref::<T>().expect("app data type mismatch")
+        self.guard
+            .downcast_ref::<T>()
+            .expect("app data type mismatch")
     }
 }
 
 impl<T: 'static> DerefMut for AppDataRefMut<T> {
     fn deref_mut(&mut self) -> &mut T {
-        self.guard.downcast_mut::<T>().expect("app data type mismatch")
+        self.guard
+            .downcast_mut::<T>()
+            .expect("app data type mismatch")
     }
 }
 
@@ -197,8 +203,7 @@ impl Lua {
             .map_err(|_| Error::runtime("app data is currently mutably borrowed"))?;
         // Extend the borrow lifetime to `'static`; the `_owner` `Rc` we keep
         // alongside keeps the `RefCell` alive for as long as the guard lives.
-        let guard: std::cell::Ref<'static, Box<dyn Any>> =
-            unsafe { std::mem::transmute(guard) };
+        let guard: std::cell::Ref<'static, Box<dyn Any>> = unsafe { std::mem::transmute(guard) };
         borrow.set(borrow.get() + 1);
         Ok(Some(AppDataRef {
             _owner: entry,
@@ -240,8 +245,7 @@ impl Lua {
         let guard = entry
             .try_borrow_mut()
             .map_err(|_| Error::runtime("app data is currently borrowed"))?;
-        let guard: std::cell::RefMut<'static, Box<dyn Any>> =
-            unsafe { std::mem::transmute(guard) };
+        let guard: std::cell::RefMut<'static, Box<dyn Any>> = unsafe { std::mem::transmute(guard) };
         borrow.set(borrow.get() + 1);
         Ok(Some(AppDataRefMut {
             _owner: entry,

@@ -36,8 +36,8 @@
 //     `Lua::load(...).into_function()` (see `test_load_from_rust`).
 //   - `mod require`               -> the `require` submodule (path resolution).
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 use luaur_rt::{Compiler, Error, Lua, Result, Table, Value, Vector, VmState};
 
@@ -219,7 +219,10 @@ fn test_readonly_table_reads_still_work() -> Result<()> {
     assert_eq!(t.get::<i64>(1)?, 10);
     assert_eq!(t.raw_get::<i64>(2)?, 20);
     assert_eq!(t.raw_len(), 3);
-    assert_eq!(t.sequence_values::<i64>().collect::<Result<Vec<_>>>()?, vec![10, 20, 30]);
+    assert_eq!(
+        t.sequence_values::<i64>().collect::<Result<Vec<_>>>()?,
+        vec![10, 20, 30]
+    );
 
     Ok(())
 }

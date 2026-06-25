@@ -43,7 +43,10 @@ pub unsafe fn lua_callgrind(l: *mut lua_State) -> core::ffi::c_int {
         return 0;
     }
 
-    luaL_error!(l, "callgrind must be called with one of 'running', 'zero', 'dump'");
+    luaL_error!(
+        l,
+        "callgrind must be called with one of 'running', 'zero', 'dump'"
+    );
     0
 }
 

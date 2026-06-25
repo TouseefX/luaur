@@ -25,7 +25,8 @@ pub fn initialize_execution_callbacks(
 extern "C" {
     fn on_close_state(L: *mut lua_State);
     fn on_destroy_function(L: *mut lua_State, proto: *mut luaur_vm::records::proto::Proto);
-    fn on_enter(L: *mut lua_State, proto: *mut luaur_vm::records::proto::Proto) -> core::ffi::c_int;
+    fn on_enter(L: *mut lua_State, proto: *mut luaur_vm::records::proto::Proto)
+        -> core::ffi::c_int;
     fn on_disable(L: *mut lua_State, proto: *mut luaur_vm::records::proto::Proto);
     fn get_memory_size(L: *mut lua_State, proto: *mut luaur_vm::records::proto::Proto) -> usize;
     fn get_counter_data(

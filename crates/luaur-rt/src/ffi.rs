@@ -53,9 +53,9 @@ pub(crate) use luaur_vm::functions::lua_gc::lua_gc;
 
 // ---- interrupts / sandbox / memory categories (Luau) ---------------------
 pub(crate) use luaur_vm::functions::lua_callbacks::lua_callbacks;
+pub(crate) use luaur_vm::functions::lua_isyieldable::lua_isyieldable;
 pub(crate) use luaur_vm::functions::lua_l_sandbox::lua_l_sandbox;
 pub(crate) use luaur_vm::functions::lua_l_sandboxthread::lua_l_sandboxthread;
-pub(crate) use luaur_vm::functions::lua_isyieldable::lua_isyieldable;
 pub(crate) use luaur_vm::functions::lua_rawcheckstack::lua_rawcheckstack;
 pub(crate) use luaur_vm::functions::lua_replace::lua_replace;
 pub(crate) use luaur_vm::functions::lua_setmemcat::lua_setmemcat;

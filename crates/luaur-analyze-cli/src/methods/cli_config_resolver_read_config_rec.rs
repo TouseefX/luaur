@@ -50,7 +50,9 @@ pub(crate) unsafe extern "C-unwind" fn luau_config_interrupt(l: *mut lua_State, 
 
     if let Some(finish_time) = info.limits.finishTime() {
         if get_clock() > finish_time {
-            std::panic::panic_any(TimeLimitError::time_limit_error_time_limit_error(&info.module));
+            std::panic::panic_any(TimeLimitError::time_limit_error_time_limit_error(
+                &info.module,
+            ));
         }
     }
     if let Some(token) = info.limits.cancellationToken() {
@@ -87,7 +89,8 @@ impl CliConfigResolver {
 
         // std::optional<std::string> luauConfigPath = joinPaths(path, kLuauConfigName);
         // if (!isFile(*luauConfigPath)) luauConfigPath = std::nullopt;
-        let luau_config_path_candidate = join_paths_string_view_string_view(path, K_LUAU_CONFIG_NAME);
+        let luau_config_path_candidate =
+            join_paths_string_view_string_view(path, K_LUAU_CONFIG_NAME);
         let luau_config_path: Option<String> = if is_file(&luau_config_path_candidate) {
             Some(luau_config_path_candidate)
         } else {

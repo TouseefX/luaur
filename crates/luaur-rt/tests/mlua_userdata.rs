@@ -252,7 +252,10 @@ fn test_metamethods() -> Result<()> {
     assert_eq!(lua.load("return userdata1 + 3").eval::<i64>()?, 10);
     assert_eq!(lua.load("return userdata1 - 2").eval::<i64>()?, 5);
     assert_eq!(lua.load("return userdata1:get()").eval::<i64>()?, 7);
-    assert_eq!(lua.load("return tostring(userdata1)").eval::<String>()?, "MyUserData(7)");
+    assert_eq!(
+        lua.load("return tostring(userdata1)").eval::<String>()?,
+        "MyUserData(7)"
+    );
 
     Ok(())
 }
@@ -342,14 +345,18 @@ fn test_userdata_drop_runs_destructor() -> Result<()> {
 
     let dropped = Arc::new(AtomicBool::new(false));
     let lua = Lua::new();
-    lua.globals().set("ud", lua.create_userdata(Tracked(dropped.clone()))?)?;
+    lua.globals()
+        .set("ud", lua.create_userdata(Tracked(dropped.clone()))?)?;
     assert!(!dropped.load(Ordering::SeqCst));
 
     // Make the userdata unreachable, then collect.
     lua.load("ud = nil").exec()?;
     lua.gc_collect()?;
     lua.gc_collect()?;
-    assert!(dropped.load(Ordering::SeqCst), "userdata destructor should have run");
+    assert!(
+        dropped.load(Ordering::SeqCst),
+        "userdata destructor should have run"
+    );
 
     Ok(())
 }

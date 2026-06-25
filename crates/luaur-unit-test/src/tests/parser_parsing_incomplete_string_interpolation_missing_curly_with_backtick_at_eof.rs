@@ -42,9 +42,9 @@ fn parser_parsing_incomplete_string_interpolation_missing_curly_with_backtick_at
     assert!(!call.is_null());
 
     let interp_string = unsafe {
-        luaur_ast::rtti::ast_node_as::<luaur_ast::records::ast_expr_interp_string::AstExprInterpString>(
-            *(*call).args.data.add(0) as *mut luaur_ast::records::ast_node::AstNode,
-        )
+        luaur_ast::rtti::ast_node_as::<
+            luaur_ast::records::ast_expr_interp_string::AstExprInterpString,
+        >(*(*call).args.data.add(0) as *mut luaur_ast::records::ast_node::AstNode)
     };
     assert!(!interp_string.is_null());
 

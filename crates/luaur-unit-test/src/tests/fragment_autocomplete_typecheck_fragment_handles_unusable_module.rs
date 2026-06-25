@@ -44,8 +44,8 @@ return { hello = B }
 
     {
         let frontend = fixture.base.base.get_frontend();
-        let _result = frontend
-            .check_module_name_optional_frontend_options(&source_a, Some(get_options()));
+        let _result =
+            frontend.check_module_name_optional_frontend_options(&source_a, Some(get_options()));
         assert!(!frontend.is_dirty(&source_a, for_autocomplete));
     }
 

@@ -24,7 +24,11 @@ impl ConstraintGenerator {
             // returns nullopt and the refinement write is skipped. Do NOT fall back
             // to `def->name` — that would associate an index result with the base
             // symbol's `refinements` entry, which later corrupts the fragment clone.
-            if let Some(sym) = (*self).dfg.as_ref().and_then(|dfg| dfg.get_symbol_from_def(def)) {
+            if let Some(sym) = (*self)
+                .dfg
+                .as_ref()
+                .and_then(|dfg| dfg.get_symbol_from_def(def))
+            {
                 (*scope).refinements.insert(LValue::Symbol(sym), ty);
             }
         }

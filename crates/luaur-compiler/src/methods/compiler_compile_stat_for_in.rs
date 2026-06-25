@@ -43,7 +43,7 @@ impl Compiler {
                     let call = luaur_ast::rtti::ast_node_as::<
                         luaur_ast::records::ast_expr_call::AstExprCall,
                     >(
-                        *stat_ref.values.data as *mut luaur_ast::records::ast_node::AstNode
+                        *stat_ref.values.data as *mut luaur_ast::records::ast_node::AstNode,
                     );
                     let builtin = crate::functions::get_builtin::get_builtin(
                         (*call).func,

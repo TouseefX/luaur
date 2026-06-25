@@ -441,7 +441,10 @@ impl<'a> ConstantVisitor<'a> {
                 );
             }
         } else if let Some(expr) = unsafe {
-            luaur_ast::rtti::ast_node_as::<luaur_ast::records::ast_expr_instantiate::AstExprInstantiate>(node as *mut luaur_ast::records::ast_node::AstNode).as_mut()
+            luaur_ast::rtti::ast_node_as::<
+                luaur_ast::records::ast_expr_instantiate::AstExprInstantiate,
+            >(node as *mut luaur_ast::records::ast_node::AstNode)
+            .as_mut()
         } {
             result = self.analyze(expr.expr);
         } else {
@@ -473,7 +476,8 @@ impl<'a> ConstantVisitor<'a> {
         } else {
             if value.r#type != crate::enums::type_constant_folding::Type::Type_Unknown {
                 *self.constants.get_or_insert(key) = value;
-            } else if self.was_empty && !luaur_common::FFlag::LuauCompilePropagateTableProps2.get() {
+            } else if self.was_empty && !luaur_common::FFlag::LuauCompilePropagateTableProps2.get()
+            {
                 // nothing
             } else if self.constants.find(&key).is_some() {
                 // C++ `old->type = Type_Unknown`: clear the STALE entry. try_insert is a no-op
@@ -501,7 +505,8 @@ impl<'a> ConstantVisitor<'a> {
         } else {
             if value.r#type != crate::enums::type_constant_folding::Type::Type_Unknown {
                 *self.locals.get_or_insert(key) = value;
-            } else if self.was_empty && !luaur_common::FFlag::LuauCompilePropagateTableProps2.get() {
+            } else if self.was_empty && !luaur_common::FFlag::LuauCompilePropagateTableProps2.get()
+            {
                 // nothing
             } else if self.locals.find(&key).is_some() {
                 *self.locals.get_or_insert(key) = Constant::default();

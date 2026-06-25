@@ -124,11 +124,7 @@ impl SkipCacheForType {
                     }
                     if let Some(indexer) = &etv.indexer {
                         self.traverse_skip_cache(indexer.index_type, seen_types, seen_packs);
-                        self.traverse_skip_cache(
-                            indexer.index_result_type,
-                            seen_types,
-                            seen_packs,
-                        );
+                        self.traverse_skip_cache(indexer.index_result_type, seen_types, seen_packs);
                     }
                 }
             }

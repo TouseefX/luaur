@@ -19,7 +19,10 @@ fn data_str(data: &[c_char], pos: u32) -> alloc::borrow::Cow<'_, str> {
 
 pub fn flush_events(context: &GlobalContext, thread_id: u32, events: &[Event], data: &[c_char]) {
     // std::scoped_lock lock(context.mutex);
-    let mut state = context.state.lock().expect("TimeTrace GlobalContext mutex poisoned");
+    let mut state = context
+        .state
+        .lock()
+        .expect("TimeTrace GlobalContext mutex poisoned");
 
     // if (!context.traceFile) { context.traceFile = fopen("trace.json", "w"); ... fprintf(..., "[\n"); }
     if state.trace_file.is_none() {

@@ -233,9 +233,11 @@ impl ConstraintSolver {
                     let built = ib.build();
                     self.bind_not_null_constraint_type_id_type_id(constraint, result_type, built);
                 } else {
-                    self.bind_not_null_constraint_type_id_type_id(constraint, result_type, unsafe {
-                        (*self.builtin_types).errorType
-                    });
+                    self.bind_not_null_constraint_type_id_type_id(
+                        constraint,
+                        result_type,
+                        unsafe { (*self.builtin_types).errorType },
+                    );
                 }
             } else {
                 let mut parts: Set<TypeId> = Set::new(core::ptr::null());
@@ -273,9 +275,11 @@ impl ConstraintSolver {
                 }
 
                 if results.size() == 0 {
-                    self.bind_not_null_constraint_type_id_type_id(constraint, result_type, unsafe {
-                        (*self.builtin_types).errorType
-                    });
+                    self.bind_not_null_constraint_type_id_type_id(
+                        constraint,
+                        result_type,
+                        unsafe { (*self.builtin_types).errorType },
+                    );
                 } else if results.size() == 1 {
                     let first = *results.iter().next().unwrap();
                     self.bind_not_null_constraint_type_id_type_id(constraint, result_type, first);
@@ -335,9 +339,11 @@ impl ConstraintSolver {
                     let built = ub.build();
                     self.bind_not_null_constraint_type_id_type_id(constraint, result_type, built);
                 } else {
-                    self.bind_not_null_constraint_type_id_type_id(constraint, result_type, unsafe {
-                        (*self.builtin_types).errorType
-                    });
+                    self.bind_not_null_constraint_type_id_type_id(
+                        constraint,
+                        result_type,
+                        unsafe { (*self.builtin_types).errorType },
+                    );
                 }
             } else {
                 let mut parts: Set<TypeId> = Set::new(core::ptr::null());
@@ -373,9 +379,11 @@ impl ConstraintSolver {
                 }
 
                 if results.size() == 0 {
-                    self.bind_not_null_constraint_type_id_type_id(constraint, result_type, unsafe {
-                        (*self.builtin_types).errorType
-                    });
+                    self.bind_not_null_constraint_type_id_type_id(
+                        constraint,
+                        result_type,
+                        unsafe { (*self.builtin_types).errorType },
+                    );
                 } else if results.size() == 1 {
                     let first_result = *results.iter().next().unwrap();
                     if !FFlag::LuauConstraintGraph.get() {

@@ -8,12 +8,7 @@ use luaur_vm::macros::lua_l_error::luaL_error;
 use luaur_vm::type_aliases::lua_state::lua_State;
 
 pub unsafe fn lua_collectgarbage(l: *mut lua_State) -> i32 {
-    let option = lua_l_optlstring(
-        l,
-        1,
-        c"collect".as_ptr(),
-        core::ptr::null_mut(),
-    );
+    let option = lua_l_optlstring(l, 1, c"collect".as_ptr(), core::ptr::null_mut());
     let option = CStr::from_ptr(option);
 
     if option.to_bytes() == b"collect" {

@@ -29,7 +29,9 @@ fn parser_do_end_block_with_cst() {
     assert_eq!(1, unsafe { (*result.root).body.size });
 
     let do_block = unsafe {
-        luaur_ast::rtti::ast_node_as::<AstStatBlock>(*(*result.root).body.data.add(0) as *mut AstNode)
+        luaur_ast::rtti::ast_node_as::<AstStatBlock>(
+            *(*result.root).body.data.add(0) as *mut AstNode
+        )
     };
     assert!(!do_block.is_null());
 

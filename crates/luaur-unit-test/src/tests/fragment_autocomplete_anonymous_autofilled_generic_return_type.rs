@@ -43,14 +43,18 @@ foo(@1)
             let ac = &frag.result.as_ref().unwrap().ac_results;
             assert_eq!(
                 ac.entry_map
-                    .contains_key(K_GENERATED_ANONYMOUS_FUNCTION_ENTRY_NAME) as usize,
+                    .contains_key(K_GENERATED_ANONYMOUS_FUNCTION_ENTRY_NAME)
+                    as usize,
                 1
             );
             let entry = &ac.entry_map[K_GENERATED_ANONYMOUS_FUNCTION_ENTRY_NAME];
             assert!(entry.kind == AutocompleteEntryKind::GeneratedFunction);
             assert!(entry.type_correct == TypeCorrectKind::Correct);
             assert!(entry.insert_text.is_some());
-            assert_eq!(expected_insert, entry.insert_text.as_ref().unwrap().as_str());
+            assert_eq!(
+                expected_insert,
+                entry.insert_text.as_ref().unwrap().as_str()
+            );
         }),
         None,
     );

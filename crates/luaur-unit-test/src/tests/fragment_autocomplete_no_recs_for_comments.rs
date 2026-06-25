@@ -67,7 +67,13 @@ local @5 -- hell@6o
         '5',
         Box::new(|frag: &mut FragmentAutocompleteStatusResult| {
             LUAU_ASSERT!(frag.result.is_some());
-            assert!(!frag.result.as_ref().unwrap().ac_results.entry_map.is_empty());
+            assert!(!frag
+                .result
+                .as_ref()
+                .unwrap()
+                .ac_results
+                .entry_map
+                .is_empty());
         }),
         None,
     );

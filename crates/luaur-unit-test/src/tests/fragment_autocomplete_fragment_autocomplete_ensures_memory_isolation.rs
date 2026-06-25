@@ -56,65 +56,112 @@ return module"#,
 
     let mut fixture = FragmentAutocompleteFixture::default();
 
-    let mut check_and_examine =
-        |fixture: &mut FragmentAutocompleteFixture, src: &String, id_name: &str, id_string: &str| {
-            fixture.base.check_with_options(src);
-            let id = fixture
-                .base
-                .base
-                .base
-                .get_type(&String::from(id_name), true);
-            LUAU_ASSERT!(id.is_some());
-            assert_eq!(
-                to_string_type_id_to_string_options_mut(id.unwrap(), opt.clone()),
-                String::from(id_string)
-            );
-        };
+    let mut check_and_examine = |fixture: &mut FragmentAutocompleteFixture,
+                                 src: &String,
+                                 id_name: &str,
+                                 id_string: &str| {
+        fixture.base.check_with_options(src);
+        let id = fixture
+            .base
+            .base
+            .base
+            .get_type(&String::from(id_name), true);
+        LUAU_ASSERT!(id.is_some());
+        assert_eq!(
+            to_string_type_id_to_string_options_mut(id.unwrap(), opt.clone()),
+            String::from(id_string)
+        );
+    };
 
-    let fragment_ac_and_check =
-        |fixture: &mut FragmentAutocompleteFixture, updated: &String, pos: Position, id_name: &str| {
-            let frag = fixture.base.autocomplete_fragment(updated, pos, None);
-            LUAU_ASSERT!(frag.result.is_some());
-            let frag_id = get_type_from_module(
-                &frag.result.as_ref().unwrap().incremental_module,
-                id_name,
-            );
-            LUAU_ASSERT!(frag_id.is_some());
+    let fragment_ac_and_check = |fixture: &mut FragmentAutocompleteFixture,
+                                 updated: &String,
+                                 pos: Position,
+                                 id_name: &str| {
+        let frag = fixture.base.autocomplete_fragment(updated, pos, None);
+        LUAU_ASSERT!(frag.result.is_some());
+        let frag_id =
+            get_type_from_module(&frag.result.as_ref().unwrap().incremental_module, id_name);
+        LUAU_ASSERT!(frag_id.is_some());
 
-            let src_id = fixture
-                .base
-                .base
-                .base
-                .get_type(&String::from(id_name), true);
-            LUAU_ASSERT!(src_id.is_some());
+        let src_id = fixture
+            .base
+            .base
+            .base
+            .get_type(&String::from(id_name), true);
+        LUAU_ASSERT!(src_id.is_some());
 
-            let frag_id = frag_id.unwrap();
-            let src_id = src_id.unwrap();
-            unsafe {
-                assert!((*frag_id).owning_arena != (*src_id).owning_arena);
-                let internal_types_ptr = &frag.result.as_ref().unwrap().incremental_module.internal_types
-                    as *const TypeArena as *mut TypeArena;
-                assert!(internal_types_ptr == (*frag_id).owning_arena);
-            }
-        };
+        let frag_id = frag_id.unwrap();
+        let src_id = src_id.unwrap();
+        unsafe {
+            assert!((*frag_id).owning_arena != (*src_id).owning_arena);
+            let internal_types_ptr = &frag
+                .result
+                .as_ref()
+                .unwrap()
+                .incremental_module
+                .internal_types as *const TypeArena
+                as *mut TypeArena;
+            assert!(internal_types_ptr == (*frag_id).owning_arena);
+        }
+    };
 
     {
         let _sff = ScopedFastFlag::new(&FFlag::DebugLuauForceOldSolver, true);
-        fixture.base.base.get_frontend().set_luau_solver_mode(SolverMode::Old);
+        fixture
+            .base
+            .base
+            .get_frontend()
+            .set_luau_solver_mode(SolverMode::Old);
         check_and_examine(&mut fixture, &source, "module", "{|  |}");
         // [TODO] CLI-140762 we shouldn't mutate stale module in autocompleteFragment
         // early return since the following checking will fail, which it shouldn't!
-        fragment_ac_and_check(&mut fixture, &updated1, Position { line: 1, column: 17 }, "module");
-        fragment_ac_and_check(&mut fixture, &updated2, Position { line: 1, column: 18 }, "module");
+        fragment_ac_and_check(
+            &mut fixture,
+            &updated1,
+            Position {
+                line: 1,
+                column: 17,
+            },
+            "module",
+        );
+        fragment_ac_and_check(
+            &mut fixture,
+            &updated2,
+            Position {
+                line: 1,
+                column: 18,
+            },
+            "module",
+        );
     }
 
     {
         let _sff = ScopedFastFlag::new(&FFlag::DebugLuauForceOldSolver, false);
-        fixture.base.base.get_frontend().set_luau_solver_mode(SolverMode::New);
+        fixture
+            .base
+            .base
+            .get_frontend()
+            .set_luau_solver_mode(SolverMode::New);
         check_and_examine(&mut fixture, &source, "module", "{  }");
         // [TODO] CLI-140762 we shouldn't mutate stale module in autocompleteFragment
         // early return since the following checking will fail, which it shouldn't!
-        fragment_ac_and_check(&mut fixture, &updated1, Position { line: 1, column: 17 }, "module");
-        fragment_ac_and_check(&mut fixture, &updated2, Position { line: 1, column: 18 }, "module");
+        fragment_ac_and_check(
+            &mut fixture,
+            &updated1,
+            Position {
+                line: 1,
+                column: 17,
+            },
+            "module",
+        );
+        fragment_ac_and_check(
+            &mut fixture,
+            &updated2,
+            Position {
+                line: 1,
+                column: 18,
+            },
+            "module",
+        );
     }
 }

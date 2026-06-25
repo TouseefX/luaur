@@ -25,8 +25,10 @@ fn parser_function_return_type_should_disambiguate_from_function_type_and_multip
     assert!((*func_expr).return_annotation.is_null() == false);
 
     let type_pack = unsafe {
-        luaur_ast::rtti::ast_node_as::<luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit>(
-            (*(*stat_func).func).return_annotation as *mut luaur_ast::records::ast_node::AstNode,
+        luaur_ast::rtti::ast_node_as::<
+            luaur_ast::records::ast_type_pack_explicit::AstTypePackExplicit,
+        >(
+            (*(*stat_func).func).return_annotation as *mut luaur_ast::records::ast_node::AstNode
         )
     };
     assert!(!type_pack.is_null());

@@ -132,8 +132,9 @@ fn test_move_lua_to_another_thread() -> Result<()> {
 fn test_callback_captures_send_data() -> Result<()> {
     // Build the captured value on a worker thread, then move it into the VM
     // (which lives on the main thread) — proving the closure env is `Send`.
-    let payload: Vec<i64> =
-        thread::spawn(|| vec![1, 2, 3, 4]).join().expect("worker panicked");
+    let payload: Vec<i64> = thread::spawn(|| vec![1, 2, 3, 4])
+        .join()
+        .expect("worker panicked");
 
     let lua = Lua::new();
     let sum_fn = lua.create_function(move |_, ()| Ok(payload.iter().sum::<i64>()))?;
@@ -167,7 +168,9 @@ impl UserData for MyUserData {
             // Reach back into globals and invoke another method, while `this`
             // is borrowed — the re-entrant pattern from the mlua test.
             let ud = lua.globals().get::<AnyUserData>("ud")?;
-            let method2 = lua.load("return function(u) return u:method2() end").eval::<Function>()?;
+            let method2 = lua
+                .load("return function(u) return u:method2() end")
+                .eval::<Function>()?;
             method2.call::<()>(ud)?;
             Ok(this.0.clone())
         });

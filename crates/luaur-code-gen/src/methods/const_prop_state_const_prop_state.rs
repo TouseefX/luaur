@@ -19,7 +19,9 @@ impl ConstPropState {
             checked_gc: false,
             inst_link: luaur_common::records::dense_hash_map::DenseHashMap::new(k_invalid_inst_idx),
             inst_tag: luaur_common::records::dense_hash_map::DenseHashMap::new(k_invalid_inst_idx),
-            inst_value: luaur_common::records::dense_hash_map::DenseHashMap::new(k_invalid_inst_idx),
+            inst_value: luaur_common::records::dense_hash_map::DenseHashMap::new(
+                k_invalid_inst_idx,
+            ),
             value_map: luaur_common::records::dense_hash_map::DenseHashMap::new(IrInst::default()),
             upvalue_map: luaur_common::records::dense_hash_map::DenseHashMap::new(0xff),
             hash_value_cache: luaur_common::records::dense_hash_map::DenseHashMap::new(

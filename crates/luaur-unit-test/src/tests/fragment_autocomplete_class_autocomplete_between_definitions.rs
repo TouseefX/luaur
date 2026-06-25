@@ -44,7 +44,13 @@ end
         '1',
         Box::new(|frag: &mut FragmentAutocompleteStatusResult| {
             LUAU_ASSERT!(frag.result.is_some());
-            assert!(!frag.result.as_ref().unwrap().ac_results.entry_map.contains_key("self"));
+            assert!(!frag
+                .result
+                .as_ref()
+                .unwrap()
+                .ac_results
+                .entry_map
+                .contains_key("self"));
         }),
         None,
     );

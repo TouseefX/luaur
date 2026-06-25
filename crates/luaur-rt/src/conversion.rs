@@ -551,7 +551,10 @@ impl<T: FromLua, const N: usize> FromLua for [T; N] {
             return Err(Error::FromLuaConversionError {
                 from: "vector",
                 to: format!("[T; {N}]"),
-                message: Some(format!("expected array of length {}, got {N}", crate::Vector::SIZE)),
+                message: Some(format!(
+                    "expected array of length {}, got {N}",
+                    crate::Vector::SIZE
+                )),
             });
         }
         let vec: Vec<T> = Vec::from_lua(value, lua)?;
@@ -696,7 +699,8 @@ fn from_lua_set<T: FromLua, C>(
             if t.raw_len() > 0 {
                 build(SetIter::Seq(t.sequence_values::<T>()))
             } else {
-                let keys: Vec<Result<T>> = t.pairs::<T, Value>().map(|p| p.map(|(k, _)| k)).collect();
+                let keys: Vec<Result<T>> =
+                    t.pairs::<T, Value>().map(|p| p.map(|(k, _)| k)).collect();
                 build(SetIter::Keys(keys.into_iter()))
             }
         }

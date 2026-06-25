@@ -131,7 +131,10 @@ fn table_pairs_iteration() {
 #[test]
 fn call_lua_function_from_rust() {
     let lua = Lua::new();
-    let doubler: Function = lua.load("return function(x) return x * 2 end").eval().unwrap();
+    let doubler: Function = lua
+        .load("return function(x) return x * 2 end")
+        .eval()
+        .unwrap();
     let r: i64 = doubler.call(21i64).unwrap();
     assert_eq!(r, 42);
 }
@@ -148,7 +151,10 @@ fn rust_error_is_catchable_by_lua_pcall() {
         .load("local ok, err = pcall(boom); assert(not ok); return tostring(err)")
         .eval()
         .unwrap();
-    assert!(msg.contains("kaboom"), "expected message to contain kaboom: {msg}");
+    assert!(
+        msg.contains("kaboom"),
+        "expected message to contain kaboom: {msg}"
+    );
 }
 
 #[test]
@@ -228,7 +234,10 @@ fn userdata_method_mut_from_lua() {
     let v = lua.create_userdata(Vec2 { x: 3.0, y: 4.0 }).unwrap();
     lua.globals().set("v", v).unwrap();
     let mag: f64 = lua.load("v:scale(2); return v:magnitude()").eval().unwrap();
-    assert!((mag - 10.0).abs() < 1e-9, "scaled magnitude should be 10, got {mag}");
+    assert!(
+        (mag - 10.0).abs() < 1e-9,
+        "scaled magnitude should be 10, got {mag}"
+    );
 }
 
 #[test]

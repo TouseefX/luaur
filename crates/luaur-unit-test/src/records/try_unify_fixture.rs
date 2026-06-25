@@ -34,12 +34,20 @@ pub struct TryUnifyFixture {
     pub ice_handler: Box<InternalErrorReporter>,
     pub global_scope: Box<Scope>,
     pub arena: Box<TypeArena>,
-    pub base: Fixture,
+    // Boxed (like the other members above) so its contents — in particular the
+    // Frontend's inline `builtin_types_` — keep a stable heap address. `state`
+    // (the Unifier) and `normalizer` cache a `*mut BuiltinTypes` into it at
+    // construction; with `base` inline, returning the fixture by value relocated
+    // `builtin_types_` and dangled those pointers, so every unification that read
+    // `builtin_types.anyType`/`.neverType` did an invalid read — benign on Linux
+    // by layout luck, a SIGSEGV on macOS/Windows
+    // (type_infer_try_unify_cli_50320_follow_in_any_unification, found via valgrind).
+    pub base: Box<Fixture>,
 }
 
 impl TryUnifyFixture {
     pub fn new() -> Self {
-        let mut base = Fixture::fixture_bool(false);
+        let mut base = Box::new(Fixture::fixture_bool(false));
         let builtin_types = base.get_builtins() as *mut BuiltinTypes;
 
         let mut arena = Box::new(TypeArena::default());

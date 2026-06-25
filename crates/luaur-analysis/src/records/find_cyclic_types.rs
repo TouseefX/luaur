@@ -97,6 +97,13 @@ impl GenericTypeVisitorTrait for FindCyclicTypes {
     /// ToString.cpp:96
     fn visit_type_id_table_type(&mut self, ty: TypeId, ttv: &TableType) -> bool {
         if !self.insert_visited(ty) {
+            // C++ `FindCyclicTypes::visit(ty, TableType)` (ToString.cpp:96): a type
+            // reached a second time IS the cycle — record it so the stringifier
+            // can emit the `t1 where t1 = ...` binding instead of recursing into
+            // it forever. The port had dropped this `cycles.insert(ty)`, so cyclic
+            // tables had no cycle name and toString recursed until the stack
+            // overflowed (simplify_simplify_stops_at_cycles).
+            self.cycle_type_id(ty);
             return false;
         }
 

@@ -19,16 +19,16 @@ path = "src/bin/luaur.rs"
 required-features = ["cli"]
 
 [dependencies]
-luaur-common = { path = "../luaur-common", version = "0.1.1" }
-luaur-ast = { path = "../luaur-ast", version = "0.1.1" }
-luaur-bytecode = { path = "../luaur-bytecode", version = "0.1.1" }
-luaur-compiler = { path = "../luaur-compiler", version = "0.1.1" }
-luaur-vm = { path = "../luaur-vm", version = "0.1.1" }
-luaur-analysis = { path = "../luaur-analysis", version = "0.1.1" }
-luaur-config = { path = "../luaur-config", version = "0.1.1" }
-luaur-require = { path = "../luaur-require", version = "0.1.1" }
-luaur-rt = { path = "../luaur-rt", version = "0.1.1" }
-luaur-repl-cli = { path = "../luaur-repl-cli", version = "0.1.1", optional = true }
+luaur-common = { path = "../luaur-common", version = "0.1.2" }
+luaur-ast = { path = "../luaur-ast", version = "0.1.2" }
+luaur-bytecode = { path = "../luaur-bytecode", version = "0.1.2" }
+luaur-compiler = { path = "../luaur-compiler", version = "0.1.2" }
+luaur-vm = { path = "../luaur-vm", version = "0.1.2" }
+luaur-analysis = { path = "../luaur-analysis", version = "0.1.2" }
+luaur-config = { path = "../luaur-config", version = "0.1.2" }
+luaur-require = { path = "../luaur-require", version = "0.1.2" }
+luaur-rt = { path = "../luaur-rt", version = "0.1.2" }
+luaur-repl-cli = { path = "../luaur-repl-cli", version = "0.1.2", optional = true }
 
 [features]
 # Batteries-included: the umbrella ships the static type checker AND the installable

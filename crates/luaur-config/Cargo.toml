@@ -14,11 +14,11 @@ crate-type = ["rlib"]
 
 [dependencies]
 wasm-bindgen = { version = "0.2", optional = true }
-luaur-ast = { path = "../luaur-ast", version = "0.1.1" }
-luaur-bytecode = { path = "../luaur-bytecode", version = "0.1.1" }
-luaur-common = { path = "../luaur-common", version = "0.1.1" }
-luaur-compiler = { path = "../luaur-compiler", version = "0.1.1" }
-luaur-vm = { path = "../luaur-vm", version = "0.1.1" }
+luaur-ast = { path = "../luaur-ast", version = "0.1.2" }
+luaur-bytecode = { path = "../luaur-bytecode", version = "0.1.2" }
+luaur-common = { path = "../luaur-common", version = "0.1.2" }
+luaur-compiler = { path = "../luaur-compiler", version = "0.1.2" }
+luaur-vm = { path = "../luaur-vm", version = "0.1.2" }
 
 [features]
 default = ["std"]

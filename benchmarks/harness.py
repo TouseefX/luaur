@@ -12,7 +12,7 @@ Usage:
     python3 harness.py fib matmul           # a subset
     RUNS=9 REF="C++ luau" python3 harness.py
 """
-import subprocess, time, statistics, json, os, sys
+import subprocess, time, statistics, json, os, sys, shutil
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROGDIR = os.path.join(HERE, "programs")
@@ -28,8 +28,19 @@ if len(sys.argv) > 1:
 
 results = {}
 for prog in PROGS:
-    path = os.path.join(PROGDIR, prog + ".lua")
     for eng in ENGINES:
+        # Each engine runs the program in its own language: Lua engines run
+        # programs/<prog>.lua, the Python engine runs programs/<prog>.py, etc.
+        # Set "ext" in engines.json to pick the source file (defaults to "lua").
+        path = os.path.join(PROGDIR, prog + "." + eng.get("ext", "lua"))
+        if not os.path.exists(path):
+            results[(prog, eng["label"])] = ("ERR", "no " + os.path.basename(path))
+            continue
+        # Skip an engine whose binary isn't installed (e.g. you only have a few
+        # of the Lua engines, or just luaur + python) instead of crashing.
+        if shutil.which(eng["cmd"][0]) is None:
+            results[(prog, eng["label"])] = ("ERR", "no binary")
+            continue
         full = eng["cmd"] + [path]
         ts, out, err = [], None, None
         for _ in range(WARMUP):

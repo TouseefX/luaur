@@ -25,8 +25,11 @@ impl Compiler {
             let expr_ref = &*expr;
             let mut format_capacity = 0;
             for string in expr_ref.strings.iter() {
-                format_capacity +=
-                    (*string).size + (*string).iter().filter(|&&c| c == b'%' as core::ffi::c_char).count();
+                format_capacity += (*string).size
+                    + (*string)
+                        .iter()
+                        .filter(|&&c| c == b'%' as core::ffi::c_char)
+                        .count();
             }
 
             let mut skipped_sub_expr = 0;
@@ -35,7 +38,10 @@ impl Compiler {
                 if let Some(c) = self.constants.find(&sub_expr) {
                     if c.r#type == Type::Type_String {
                         format_capacity += c.string_length as usize
-                            + c.get_string().iter().filter(|&&c| c == b'%' as core::ffi::c_char).count();
+                            + c.get_string()
+                                .iter()
+                                .filter(|&&c| c == b'%' as core::ffi::c_char)
+                                .count();
                         skipped_sub_expr += 1;
                     } else {
                         format_capacity += 2;

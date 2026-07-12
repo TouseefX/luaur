@@ -75,7 +75,8 @@ fn conformance_userdata_api() {
         lua_setuserdatatag(l, -1, 42);
 
         let ud3 = lua_newuserdatadtor(l, 4, Some(userdata_api_inline_int_dtor)) as *mut i32;
-        let ud4 = lua_newuserdatadtor(l, 1, Some(userdata_api_inline_char_dtor)) as *mut core::ffi::c_char;
+        let ud4 = lua_newuserdatadtor(l, 1, Some(userdata_api_inline_char_dtor))
+            as *mut core::ffi::c_char;
 
         *ud3 = 43;
         *ud4 = 3;

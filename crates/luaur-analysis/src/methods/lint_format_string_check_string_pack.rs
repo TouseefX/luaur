@@ -20,7 +20,9 @@ impl LintFormatString {
                 return c"unexpected character; must be a pack specifier or space".as_ptr();
             }
 
-            if ch == b'c' as core::ffi::c_char && (i + 1 == size || !self.is_digit(unsafe { *data.add(i + 1) })) {
+            if ch == b'c' as core::ffi::c_char
+                && (i + 1 == size || !self.is_digit(unsafe { *data.add(i + 1) }))
+            {
                 return c"fixed-sized string format must specify the size".as_ptr();
             }
 

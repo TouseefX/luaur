@@ -9,10 +9,10 @@ impl LintFormatString {
         let mut i = 0;
         while i < size {
             let ch = unsafe { *data.add(i) };
-            if ch == b'%' as i8 {
+            if ch == b'%' as core::ffi::c_char {
                 i += 1;
 
-                if i < size && unsafe { *data.add(i) } == b'%' as i8 {
+                if i < size && unsafe { *data.add(i) } == b'%' as core::ffi::c_char {
                     i += 1;
                     continue;
                 }
@@ -28,7 +28,7 @@ impl LintFormatString {
                     i += 1;
                 }
 
-                if i < size && unsafe { *data.add(i) } == b'.' as i8 {
+                if i < size && unsafe { *data.add(i) } == b'.' as core::ffi::c_char {
                     i += 1;
 
                     if i < size && self.is_digit(unsafe { *data.add(i) }) {

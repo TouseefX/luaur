@@ -20,29 +20,29 @@ impl LintFormatString {
                 return c"unexpected character; must be a pack specifier or space".as_ptr();
             }
 
-            if ch == b'c' as i8 && (i + 1 == size || !self.is_digit(unsafe { *data.add(i + 1) })) {
+            if ch == b'c' as core::ffi::c_char && (i + 1 == size || !self.is_digit(unsafe { *data.add(i + 1) })) {
                 return c"fixed-sized string format must specify the size".as_ptr();
             }
 
-            if ch == b'X' as i8
+            if ch == b'X' as core::ffi::c_char
                 && (i + 1 == size || unsized_opts.contains(&(unsafe { *data.add(i + 1) } as u8)))
             {
                 return c"X must be followed by a size specifier".as_ptr();
             }
 
-            if fixed && (ch == b'z' as i8 || ch == b's' as i8) {
+            if fixed && (ch == b'z' as core::ffi::c_char || ch == b's' as core::ffi::c_char) {
                 return c"pack specifier must be fixed-size".as_ptr();
             }
 
-            if (ch == b'!' as i8
-                || ch == b'i' as i8
-                || ch == b'I' as i8
-                || ch == b'c' as i8
-                || ch == b's' as i8)
+            if (ch == b'!' as core::ffi::c_char
+                || ch == b'i' as core::ffi::c_char
+                || ch == b'I' as core::ffi::c_char
+                || ch == b'c' as core::ffi::c_char
+                || ch == b's' as core::ffi::c_char)
                 && i + 1 < size
                 && self.is_digit(unsafe { *data.add(i + 1) })
             {
-                let isc = ch == b'c' as i8;
+                let isc = ch == b'c' as core::ffi::c_char;
 
                 let mut v: u32 = 0;
                 while i + 1 < size

@@ -55,7 +55,7 @@ impl LintUnusedFunction {
                 let c_str = name.value;
                 if !c_str.is_null() {
                     let first_char = unsafe { *c_str };
-                    if first_char != b'_' as i8 {
+                    if first_char != b'_' as core::ffi::c_char {
                         let name = unsafe { core::ffi::CStr::from_ptr(c_str).to_string_lossy() };
                         emit_warning(
                             unsafe { &mut *self.context },

@@ -15,13 +15,13 @@ pub(crate) const kMaxSmallSize: usize = 1024;
 #[derive(Debug)]
 pub struct SizeClassConfig {
     pub sizeOfClass: [core::ffi::c_int; kSizeClasses],
-    pub classForSize: [core::ffi::c_char; kMaxSmallSize + 1],
+    pub classForSize: [i8; kMaxSmallSize + 1],
     pub classCount: core::ffi::c_int,
 }
 
 const fn build_size_class_config() -> SizeClassConfig {
     let mut size_of_class = [0i32; kSizeClasses];
-    let mut class_for_size = [-1i8 as core::ffi::c_char; kMaxSmallSize + 1];
+    let mut class_for_size = [-1i8 as i8; kMaxSmallSize + 1];
     let mut class_count = 0usize;
 
     // we use a progressive size class scheme:
@@ -61,7 +61,7 @@ const fn build_size_class_config() -> SizeClassConfig {
     // fill the lookup table for all classes
     let mut klass = 0usize;
     while klass < class_count {
-        class_for_size[size_of_class[klass] as usize] = klass as core::ffi::c_char;
+        class_for_size[size_of_class[klass] as usize] = klass as i8;
         klass += 1;
     }
 

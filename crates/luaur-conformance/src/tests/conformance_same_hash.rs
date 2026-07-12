@@ -63,7 +63,7 @@ fn conformance_same_hash() {
         BytecodeBuilder::get_string_hash(string_ref(b"luaubytecodehash"))
     );
 
-    let buf = [0i8; 128];
+    let buf = [0 as core::ffi::c_char; 128];
     unsafe {
         assert_eq!(
             luaS_hash(buf.as_ptr().add(1), 120),

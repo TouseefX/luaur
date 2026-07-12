@@ -9,7 +9,7 @@ pub fn find_conformance_source_dir() -> String {
         return vendored.to_owned();
     }
 
-    let mut buf = [0i8; 4096];
+    let mut buf = [0 as core::ffi::c_char; 4096];
     unsafe {
         if getCwd(buf.as_mut_ptr(), buf.len() as core::ffi::c_int).is_null() {
             return String::new();

@@ -10,7 +10,7 @@ impl crate::records::lint_format_string::LintFormatString {
     ) -> *const c_char {
         let mut i = 0;
         while i < size {
-            if unsafe { *data.add(i) } == b'%' as i8 {
+            if unsafe { *data.add(i) } == b'%' as core::ffi::c_char {
                 i += 1;
 
                 if i == size {
@@ -18,7 +18,7 @@ impl crate::records::lint_format_string::LintFormatString {
                 }
 
                 let next_ch = unsafe { *data.add(i) };
-                if next_ch != b'%' as i8 && !self.is_digit(next_ch) {
+                if next_ch != b'%' as core::ffi::c_char && !self.is_digit(next_ch) {
                     return c"unexpected replacement character; must be a digit or %".as_ptr();
                 }
 

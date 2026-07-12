@@ -17,7 +17,7 @@ impl crate::records::lint_format_string::LintFormatString {
         let mut i: usize = 0;
         unsafe {
             while i < size {
-                if *data.add(i) == b'%' as i8 {
+                if *data.add(i) == b'%' as core::ffi::c_char {
                     i += 1;
 
                     if i == size {
@@ -26,7 +26,7 @@ impl crate::records::lint_format_string::LintFormatString {
 
                     let ch = *data.add(i);
                     if self.is_digit(ch) {
-                        if ch == b'0' as i8 {
+                        if ch == b'0' as core::ffi::c_char {
                             return c"invalid capture reference, must be 1-9".as_ptr();
                         }
 
@@ -43,13 +43,13 @@ impl crate::records::lint_format_string::LintFormatString {
                             }
                         }
                     } else if self.is_alpha(ch) {
-                        if ch == b'b' as i8 {
+                        if ch == b'b' as core::ffi::c_char {
                             if i + 2 >= size {
                                 return c"missing brace characters for balanced match".as_ptr();
                             }
                             i += 2;
-                        } else if ch == b'f' as i8 {
-                            if i + 1 >= size || *data.add(i + 1) != b'[' as i8 {
+                        } else if ch == b'f' as core::ffi::c_char {
+                            if i + 1 >= size || *data.add(i + 1) != b'[' as core::ffi::c_char {
                                 return c"missing set after a frontier pattern".as_ptr();
                             }
                             // we can parse the set with the regular logic
@@ -65,21 +65,21 @@ impl crate::records::lint_format_string::LintFormatString {
                             return c"expected a magic character after %".as_ptr();
                         }
                     }
-                } else if *data.add(i) == b'[' as i8 {
+                } else if *data.add(i) == b'[' as core::ffi::c_char {
                     let mut j = i + 1;
 
                     // empty patterns don't exist as per grammar rules, so we skip leading ^ and ]
-                    if j < size && *data.add(j) == b'^' as i8 {
+                    if j < size && *data.add(j) == b'^' as core::ffi::c_char {
                         j += 1;
                     }
-                    if j < size && *data.add(j) == b']' as i8 {
+                    if j < size && *data.add(j) == b']' as core::ffi::c_char {
                         j += 1;
                     }
 
                     // scan for the end of the pattern
-                    while j < size && *data.add(j) != b']' as i8 {
+                    while j < size && *data.add(j) != b']' as core::ffi::c_char {
                         // % escapes the next character
-                        if j + 1 < size && *data.add(j) == b'%' as i8 {
+                        if j + 1 < size && *data.add(j) == b'%' as core::ffi::c_char {
                             j += 1;
                         }
                         j += 1;
@@ -95,12 +95,12 @@ impl crate::records::lint_format_string::LintFormatString {
                         return error;
                     }
 
-                    debug_assert!(*data.add(j) == b']' as i8);
+                    debug_assert!(*data.add(j) == b']' as core::ffi::c_char);
                     i = j;
-                } else if *data.add(i) == b'(' as i8 {
+                } else if *data.add(i) == b'(' as core::ffi::c_char {
                     total_captures += 1;
                     open_captures.push(total_captures);
-                } else if *data.add(i) == b')' as i8 {
+                } else if *data.add(i) == b')' as core::ffi::c_char {
                     if open_captures.is_empty() {
                         return c"unexpected ) without a matching (".as_ptr();
                     }

@@ -8,7 +8,7 @@ impl LintFormatString {
         let mut i = 0;
         while i < size {
             let ch = unsafe { *data.add(i) };
-            if ch == b'%' as i8 {
+            if ch == b'%' as core::ffi::c_char {
                 i += 1;
 
                 if i == size {
@@ -16,7 +16,7 @@ impl LintFormatString {
                 }
 
                 let next_ch = unsafe { *data.add(i) };
-                if next_ch != b'%' as i8 && !options.contains(&(next_ch as u8)) {
+                if next_ch != b'%' as core::ffi::c_char && !options.contains(&(next_ch as u8)) {
                     return c"unexpected replacement character; must be a date format specifier or %".as_ptr();
                 }
             }

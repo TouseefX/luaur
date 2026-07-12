@@ -13,7 +13,7 @@ impl LintFormatString {
         unsafe {
             while i < size {
                 let ch = *data.add(i);
-                if ch == b'%' as i8 {
+                if ch == b'%' as core::ffi::c_char {
                     i += 1;
 
                     if i == size {
@@ -35,11 +35,11 @@ impl LintFormatString {
                         }
                     }
 
-                    if i + 1 < size && *data.add(i + 1) == b'-' as i8 {
+                    if i + 1 < size && *data.add(i + 1) == b'-' as core::ffi::c_char {
                         return c"character range can't include character sets".as_ptr();
                     }
-                } else if ch == b'-' as i8 {
-                    if i + 1 < size && *data.add(i + 1) == b'%' as i8 {
+                } else if ch == b'-' as core::ffi::c_char {
+                    if i + 1 < size && *data.add(i + 1) == b'%' as core::ffi::c_char {
                         return c"character range can't include character sets".as_ptr();
                     }
                 }

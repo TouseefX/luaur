@@ -38,7 +38,7 @@ pub unsafe fn luai_num_2_str(mut buf: *mut core::ffi::c_char, n: f64) -> *mut co
     LUAU_ASSERT!(d.s < 1e17 as u64);
 
     // print the decimal to a temporary buffer; we'll need to insert the decimal point and figure out the format
-    let mut decbuf = [0i8; 40];
+    let mut decbuf = [0 as core::ffi::c_char; 40];
     let decend = decbuf.as_mut_ptr().add(20) as *mut core::ffi::c_char; // significand needs at most 17 digits
     let dec = printunsignedrev(decend, d.s);
 

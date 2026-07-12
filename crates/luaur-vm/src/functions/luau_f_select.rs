@@ -33,7 +33,7 @@ pub unsafe fn luau_f_select(
                 setobj_2_s!(l, res, (*l).base.add((n - (i - 1)) as usize - 1));
                 return 1;
             }
-        } else if ttisstring!(arg0) && *svalue!(arg0) == b'#' as i8 {
+        } else if ttisstring!(arg0) && *svalue!(arg0) == b'#' as core::ffi::c_char {
             setnvalue!(res, n as f64);
             return 1;
         }

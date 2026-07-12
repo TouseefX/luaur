@@ -21,7 +21,7 @@ unsafe extern "C" fn assertion_handler_adapter(
     assertion_handler(expr, file, line, function)
 }
 
-pub fn main(argc: i32, argv: *mut *mut i8) -> i32 {
+pub fn main(argc: i32, argv: *mut *mut core::ffi::c_char) -> i32 {
     *assert_handler() = Some(assertion_handler_adapter);
 
     set_luau_flags_default();

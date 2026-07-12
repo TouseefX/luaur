@@ -9,7 +9,7 @@ use luaur_common::macros::luau_assert::LUAU_ASSERT;
 
 fn string_ref(value: &str) -> StringRef {
     StringRef {
-        data: value.as_ptr() as *const i8,
+        data: value.as_ptr() as *const core::ffi::c_char,
         length: value.len(),
     }
 }

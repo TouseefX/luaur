@@ -1,5 +1,5 @@
 #[allow(non_snake_case)]
-pub fn hashRange(data: *const i8, size: usize) -> usize {
+pub fn hashRange(data: *const core::ffi::c_char, size: usize) -> usize {
     let mut hash: u32 = 2166136261;
 
     for i in 0..size {

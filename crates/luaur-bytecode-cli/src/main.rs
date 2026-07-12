@@ -13,9 +13,9 @@ fn main() {
         .iter()
         .map(|arg| CString::new(arg.as_str()).unwrap())
         .collect();
-    let mut argv: Vec<*mut i8> = c_args
+    let mut argv: Vec<*mut core::ffi::c_char> = c_args
         .iter_mut()
-        .map(|arg| arg.as_ptr() as *mut i8)
+        .map(|arg| arg.as_ptr() as *mut core::ffi::c_char)
         .collect();
 
     let exit_code = luaur_bytecode_cli::functions::main::main(args.len() as i32, argv.as_mut_ptr());

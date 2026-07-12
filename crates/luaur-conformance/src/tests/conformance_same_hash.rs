@@ -39,7 +39,7 @@ fn conformance_same_hash() {
     use luaur_vm::functions::lua_s_hash::luaS_hash;
 
     fn string_ref(s: &'static [u8]) -> StringRef {
-        StringRef::new(s.as_ptr() as *const i8, s.len())
+        StringRef::new(s.as_ptr() as *const core::ffi::c_char, s.len())
     }
 
     assert_eq!(

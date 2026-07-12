@@ -23,15 +23,15 @@ pub fn lua_collectgarbage(L: *mut lua_State) -> i32 {
     ];
 
     let opts_ptrs = [
-        opts[0].as_ptr() as *const i8,
-        opts[1].as_ptr() as *const i8,
-        opts[2].as_ptr() as *const i8,
-        opts[3].as_ptr() as *const i8,
-        opts[4].as_ptr() as *const i8,
-        opts[5].as_ptr() as *const i8,
-        opts[6].as_ptr() as *const i8,
-        opts[7].as_ptr() as *const i8,
-        opts[8].as_ptr() as *const i8,
+        opts[0].as_ptr() as *const core::ffi::c_char,
+        opts[1].as_ptr() as *const core::ffi::c_char,
+        opts[2].as_ptr() as *const core::ffi::c_char,
+        opts[3].as_ptr() as *const core::ffi::c_char,
+        opts[4].as_ptr() as *const core::ffi::c_char,
+        opts[5].as_ptr() as *const core::ffi::c_char,
+        opts[6].as_ptr() as *const core::ffi::c_char,
+        opts[7].as_ptr() as *const core::ffi::c_char,
+        opts[8].as_ptr() as *const core::ffi::c_char,
         core::ptr::null(),
     ];
 

@@ -70,7 +70,7 @@ impl BytecodeBuilder {
 
         // LUAU_ASSERT(stringTable.find(StringRef{"", 0}) == nullptr);
         let empty_key = StringRef {
-            data: b"\0".as_ptr() as *const i8,
+            data: b"\0".as_ptr() as *const core::ffi::c_char,
             length: 0,
         };
         LUAU_ASSERT!(result.string_table.find(&empty_key).is_none());

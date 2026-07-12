@@ -47,7 +47,7 @@ pub unsafe fn lua_vec_2_index(L: *mut lua_State) -> i32 {
 
     lua_l_error_l(
         L,
-        "{} is not a valid member of vector\0".as_ptr() as *const i8,
+        "{} is not a valid member of vector\0".as_ptr() as *const core::ffi::c_char,
         core::format_args!("{} is not a valid member of vector", name),
     );
     0

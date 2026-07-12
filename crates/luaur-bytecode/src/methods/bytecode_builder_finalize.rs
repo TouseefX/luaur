@@ -25,7 +25,7 @@ impl BytecodeBuilder {
                 let sref = {
                     let name = &self.userdata_types[i].name;
                     StringRef {
-                        data: name.as_ptr() as *const i8,
+                        data: name.as_ptr() as *const core::ffi::c_char,
                         length: name.len(),
                     }
                 };

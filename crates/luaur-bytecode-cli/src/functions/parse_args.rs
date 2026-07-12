@@ -10,7 +10,7 @@ use luaur_cli_lib::functions::set_luau_flags_flags_alt_b::set_luau_flags_c_char;
 use crate::functions::display_help::display_help;
 use crate::records::global_options::globalOptions;
 
-pub(crate) fn parse_args(argc: i32, argv: *mut *mut i8, summary_file: &mut String) -> bool {
+pub(crate) fn parse_args(argc: i32, argv: *mut *mut core::ffi::c_char, summary_file: &mut String) -> bool {
     for i in 1..argc {
         let arg_ptr = unsafe { *argv.add(i as usize) };
         let arg = unsafe { CStr::from_ptr(arg_ptr) };

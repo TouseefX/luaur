@@ -2,12 +2,12 @@ use core::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct StringRef {
-    pub(crate) data: *const i8,
+    pub(crate) data: *const core::ffi::c_char,
     pub(crate) length: usize,
 }
 
 impl StringRef {
-    pub fn new(data: *const i8, length: usize) -> Self {
+    pub fn new(data: *const core::ffi::c_char, length: usize) -> Self {
         Self { data, length }
     }
 

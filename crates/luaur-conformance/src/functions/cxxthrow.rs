@@ -8,7 +8,7 @@ pub fn cxxthrow(L: *mut lua_State) -> i32 {
         if LUA_USE_LONGJMP != 0 {
             lua_l_error_l(
                 L,
-                b"oops\0".as_ptr() as *const i8,
+                b"oops\0".as_ptr() as *const core::ffi::c_char,
                 core::format_args!("oops"),
             );
         } else {

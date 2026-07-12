@@ -54,8 +54,8 @@ pub fn analyze_file(
     let result = unsafe {
         luau_load(
             L,
-            b"source\0".as_ptr() as *const i8,
-            bytecode_cstr.as_ptr() as *const i8,
+            b"source\0".as_ptr() as *const core::ffi::c_char,
+            bytecode_cstr.as_ptr() as *const core::ffi::c_char,
             bytecode_cstr.len(),
             0,
         )

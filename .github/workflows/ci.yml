@@ -143,6 +143,41 @@ jobs:
       - name: cargo check luaur-rt feature surface (cold)
         run: cargo check -p luaur-rt --all-targets --locked --features send,async,serde,macros,typecheck
 
+  android-check:
+    name: Check Android targets compile — ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-linux-android
+          - armv7-linux-androideabi
+          - x86_64-linux-android
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable Rust (+ Android target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: android-${{ matrix.target }}
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Cargo check luaur + luaur-rt (default features)
+        run: cargo check -p luaur -p luaur-rt --target ${{ matrix.target }} --locked --all-targets
+
+      - name: Cargo check luaur-rt feature surface
+        run: cargo check -p luaur-rt --target ${{ matrix.target }} --locked --all-targets --features send,async,serde,macros,typecheck
+
   # NOTE: coverage-guided fuzzing (AFL / cargo-afl) is deliberately NOT a PR gate.
   # A 30-second smoke run isn't fuzzing — real fuzzing is a long soak with an
   # accumulating corpus — and gating PRs on it makes unrelated changes flaky

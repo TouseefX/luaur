@@ -15,7 +15,7 @@ pub(crate) fn get_clock_timestamp() -> f64 {
         }
         unsafe { mach_absolute_time() as f64 }
     }
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "android"))]
     {
         let mut now = libc::timespec {
             tv_sec: 0,
@@ -38,7 +38,8 @@ pub(crate) fn get_clock_timestamp() -> f64 {
             target_os = "windows",
             target_os = "macos",
             target_os = "linux",
-            target_os = "freebsd"
+            target_os = "freebsd",
+            target_os = "android"
         ))
     ))]
     {

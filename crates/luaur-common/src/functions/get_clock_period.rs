@@ -24,7 +24,7 @@ pub(crate) fn get_clock_period() -> f64 {
         }
         (result.numer as f64) / (result.denom as f64) * 1e-9
     }
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "android"))]
     {
         1e-9
     }
@@ -41,7 +41,8 @@ pub(crate) fn get_clock_period() -> f64 {
             target_os = "windows",
             target_os = "macos",
             target_os = "linux",
-            target_os = "freebsd"
+            target_os = "freebsd",
+            target_os = "android"
         ))
     ))]
     {

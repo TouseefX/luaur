@@ -19,7 +19,7 @@ pub(crate) fn clock_timestamp() -> f64 {
         }
         unsafe { mach_absolute_time() as f64 }
     }
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "android"))]
     {
         use core::mem::MaybeUninit;
         #[repr(C)]
@@ -50,6 +50,7 @@ pub(crate) fn clock_timestamp() -> f64 {
         target_os = "macos",
         target_os = "linux",
         target_os = "freebsd",
+        target_os = "android",
         target_os = "emscripten"
     )))]
     {

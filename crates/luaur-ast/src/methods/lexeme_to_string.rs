@@ -96,8 +96,10 @@ impl Lexeme {
                 if cp != 0 {
                     let confusable_ptr = find_confusable(cp);
                     if !confusable_ptr.is_null() {
-                        let confusable =
-                            unsafe { CStr::from_ptr(confusable_ptr).to_string_lossy() };
+                        let confusable = unsafe {
+                            CStr::from_ptr(confusable_ptr as *const core::ffi::c_char)
+                                .to_string_lossy()
+                        };
                         format!(
                             "Unicode character U+{:x} (did you mean '{}'?)",
                             cp, confusable

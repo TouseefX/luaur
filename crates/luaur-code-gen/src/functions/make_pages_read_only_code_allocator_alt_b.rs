@@ -16,7 +16,7 @@ pub fn make_pages_read_only_mut(mem: *mut u8, size: usize) -> bool {
     CODEGEN_ASSERT!(CodeAllocator::align_to_page_size(mem as usize) == mem as usize);
     CODEGEN_ASSERT!(size == CodeAllocator::align_to_page_size(size));
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     {
         extern "C" {
             fn mprotect(addr: *mut c_void, len: usize, prot: c_int) -> c_int;
@@ -64,6 +64,7 @@ pub fn make_pages_read_only_mut(mem: *mut u8, size: usize) -> bool {
         target_os = "linux",
         target_os = "macos",
         target_os = "freebsd",
+        target_os = "android",
         target_os = "windows"
     )))]
     {

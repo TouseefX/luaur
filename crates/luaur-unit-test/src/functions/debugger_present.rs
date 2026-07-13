@@ -59,7 +59,7 @@ mod macos {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn debugger_present() -> bool {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
@@ -88,7 +88,8 @@ pub fn debugger_present() -> bool {
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
-    target_os = "linux"
+    target_os = "linux",
+    target_os = "android"
 )))]
 pub fn debugger_present() -> bool {
     false

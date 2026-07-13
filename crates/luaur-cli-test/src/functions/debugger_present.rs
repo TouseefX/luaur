@@ -58,7 +58,7 @@ pub fn debugger_present() -> bool {
         }
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     {
         use std::fs::File;
         use std::io::{BufRead, BufReader};
@@ -85,7 +85,12 @@ pub fn debugger_present() -> bool {
         tpid != 0
     }
 
-    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+    #[cfg(not(any(
+        windows,
+        target_os = "macos",
+        target_os = "linux",
+        target_os = "android"
+    )))]
     {
         false
     }

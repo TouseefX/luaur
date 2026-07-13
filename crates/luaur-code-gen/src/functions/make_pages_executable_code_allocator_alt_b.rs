@@ -6,7 +6,12 @@ pub unsafe fn make_pages_executable_mut(mem: *mut u8, size: usize) -> bool {
     CODEGEN_ASSERT!(CodeAllocator::align_to_page_size(mem as usize) == mem as usize);
     CODEGEN_ASSERT!(size == CodeAllocator::align_to_page_size(size));
 
-    #[cfg(target_os = "linux")]
+    // Android/bionic exposes the same mprotect(2) as Linux. This never requests
+    // PROT_WRITE|PROT_EXEC together (only ever flips RW <-> RX), which is the
+    // flip-flop pattern Android's W^X enforcement (SELinux + newer API-level
+    // hardening) expects from a JIT; still worth an on-device smoke test since
+    // OEM/hardened builds can vary.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     {
         use core::ffi::c_int;
         use core::ffi::c_void;
@@ -47,7 +52,12 @@ pub unsafe fn make_pages_executable_mut(mem: *mut u8, size: usize) -> bool {
             &mut old_protect as *mut u32,
         ) != 0
     }
-    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "macos",
+        target_os = "android",
+        target_os = "windows"
+    )))]
     {
         false
     }

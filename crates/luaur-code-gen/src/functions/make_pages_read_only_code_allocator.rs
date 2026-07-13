@@ -15,7 +15,7 @@ pub fn make_pages_read_only(mem: *mut u8, size: usize) -> bool {
         unsafe { VirtualProtect(mem as *const c_void, size, PAGE_READONLY, &mut old_protect) != 0 }
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     {
         use core::ffi::c_int;
         use core::ffi::c_void;
@@ -61,7 +61,8 @@ pub fn make_pages_read_only(mem: *mut u8, size: usize) -> bool {
         target_os = "windows",
         target_os = "linux",
         target_os = "macos",
-        target_os = "freebsd"
+        target_os = "freebsd",
+        target_os = "android"
     )))]
     {
         false

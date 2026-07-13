@@ -1,13 +1,13 @@
 use crate::macros::codegen_assert::CODEGEN_ASSERT;
 use crate::records::code_allocator::CodeAllocator;
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "android"))]
 use core::ffi::c_int;
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "android"))]
 use core::ffi::c_void;
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "android"))]
 extern "C" {
     fn mprotect(addr: *mut c_void, len: usize, prot: c_int) -> c_int;
 }
@@ -17,7 +17,7 @@ pub fn make_pages_not_executable_mut(mem: *mut u8, size: usize) -> bool {
     CODEGEN_ASSERT!(CodeAllocator::align_to_page_size(mem as usize) == mem as usize);
     CODEGEN_ASSERT!(size == CodeAllocator::align_to_page_size(size));
 
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "android"))]
     {
         const PROT_READ: c_int = 0x1;
         const PROT_WRITE: c_int = 0x2;
@@ -45,7 +45,12 @@ pub fn make_pages_not_executable_mut(mem: *mut u8, size: usize) -> bool {
         }
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "macos",
+        target_os = "android",
+        target_os = "windows"
+    )))]
     {
         false
     }
